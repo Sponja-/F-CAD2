@@ -55,7 +55,7 @@ class Function(Object):
 
 class IComputable(ABC):
     @abstractmethod
-    def eval(self, locals: Dict[str, Type[Object]]) -> Object:
+    def eval(self, locals: Dict[str, Type[Object]]) -> Type[Object]:
         pass
 
 
@@ -69,7 +69,7 @@ class Constant(IComputable):
     def __init__(self, value: Type[Object]) -> None:
         self.value = value
 
-    def eval(self, locals: Dict[str, Type[Object]]) -> Object:
+    def eval(self, locals: Dict[str, Type[Object]]) -> Type[Object]:
         return self.value
 
 
@@ -79,7 +79,7 @@ class Variable(IComputable, IAssignable):
     def __init__(self, name: str) -> None:
         self.name = name
 
-    def eval(self, locals: Dict[str, Type[Object]]) -> Object:
+    def eval(self, locals: Dict[str, Type[Object]]) -> Type[Object]:
         if self.name in locals:
             return locals[self.name]
         if self.name in Variable.table:
@@ -99,7 +99,7 @@ class MethodCall(IComputable):  # Or FunctionCall
         self.function = function
         self.arguments = arguments
 
-    def eval(self, locals: Dict[str, Type[Object]]) -> Object:
+    def eval(self, locals: Dict[str, Type[Object]]) -> Type[Object]:
         f = self.function.eval(locals)
         assert(len(f.arg_names) <= len(self.arguments))
         new_locals = {name: arg.eval(locals)
@@ -118,7 +118,7 @@ class MemberAccess(IComputable, IAssignable):
         self.object = object
         self.name = name
 
-    def eval(self, locals: Dict[str, Type[Object]]) -> Object:
+    def eval(self, locals: Dict[str, Type[Object]]) -> Type[Object]:
         obj = self.object.eval(locals)
         if self.name in obj.attributes:
             return obj.attributes[self.name]
@@ -142,7 +142,7 @@ class PrimitiveCall(IComputable):
                  function: Callable[[Dict[str, Type[Object]]], Type[Object]]) -> None:
         self.function = function
 
-    def eval(self, locals: Dict[str, Type[Object]]) -> Object:
+    def eval(self, locals: Dict[str, Type[Object]]) -> Type[Object]:
         return self.function(locals)
 
 
@@ -165,38 +165,50 @@ def to_primitive_function(func: Callable) -> Function:
                     var_arg_name=var_arg_name)
 
 
+def best_fitting_method(operator_name, obj, pos, length):
+    if obj.type.has_method(operator_name + f"_{str(pos)}"):
+        return (obj.type.get_method(operator_name + f"_{str(pos)}"), True)
+    elif pos == 0 and length == 2 and obj.type.has_method(operator_name + "_left"):
+        return (obj.type.get_method(operator_name + "_left"))
+    elif pos == 1 and length == 2 and obj.type.has_method(operator_name + "_right"):
+        return (obj.type.get_method(operator_name + "_left"), True)
+
+    if obj.type.has_method(operator_name):
+        return (obj.type.get_method(operator_name), False)
+
+    return None
+
+
+def resolve_overload(operator_name, objects):  # TODO: Optimize
+    best_method = None
+    owner = None
+    position = 0
+    is_prim = True
+    has_pos = False
+    for i, obj in enumerate(objects):  # First pass checks non prim for correct positions
+        method, with_pos = best_fitting_method(operator_name, obj, i, len(objects))
+        if method is not None:
+            primitive = isinstance(obj, IPrimitiveType)
+            if (best_method is None or
+               is_prim and not primitive or
+               not is_prim and not primitive and not has_pos and with_pos or
+               is_prim and not has_pos and with_pos):
+                best_method = method
+                owner = obj
+                position = i
+
+    return (best_method, owner, position)
+
+
 class OperatorCall(IComputable):
     def __init__(self, name: str, arguments: Iterable[Type[IComputable]]) -> None:
-        self.name = f"operator_{name}"
+        self.name = name
         self.arguments = arguments
 
-    def eval(self, locals: Dict[str, Type[Object]]) -> Object:
+    def eval(self, locals: Dict[str, Type[Object]]) -> Type[Object]:
         objs: List[Object] = [arg.eval(locals) for arg in self.arguments]
-        method = None
-        owner_of_method = None
-        position = 0
 
-        if len(self.arguments == 2) and objs[0].type.has_method(self.name + "_left"):
-            method = objs[0].type.get_method(self.name + "_left")
-            owner_of_method = objs[0]
-            position = 0
-        elif len(self.arguments == 2) and objs[1].type.has_method(self.name + "_right"):
-            method = objs[1].type.get_method(self.name + "_right")
-            owner_of_method = objs[1]
-            position = 1
-        else:
-            for i, obj in enumerate(objs):
-                if not isinstance(obj, IPrimitiveType):
-                    if obj.type.has_method(self.name):
-                        owner_of_method = obj
-                        method = obj.type.get_method(self.name)
-                        position = i
-                        break
-                elif method is None:
-                    if obj.type.has_method(self.name):
-                        owner_of_method = obj
-                        method = obj.type.get_method(self.name)
-                        position = i
+        method, owner, position = resolve_overload(self.name, objs)
 
         if method is None:
             raise f"Cant perform {self.name} on objects of types\
@@ -207,9 +219,9 @@ class OperatorCall(IComputable):
         new_locals = {name: obj for name, obj in zip(method.arg_names, objs)}
 
         if method.var_arg_name is not None:
-            new_locals[method.var_arg_name] = forward_declarations["Array"](objs[len(method.arg_names) - 1:])  # TODO
+            new_locals[method.var_arg_name] = forward_declarations["Array"](objs[len(method.arg_names) - 1:])
 
-        new_locals["this"] = owner_of_method
+        new_locals["this"] = owner
 
         return method.operation.eval(new_locals)
 

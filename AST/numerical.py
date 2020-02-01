@@ -1,7 +1,8 @@
 from base import Class, Constant, OperatorCall, forward_declarations
 from base import to_primitive_function, IPrimitiveType
-from typing import Union
+from typing import Union, Callable
 from functools import wraps
+from bool import Bool
 
 
 class Numerical(IPrimitiveType):
@@ -20,24 +21,42 @@ class Float(Numerical):
         super().__init__(value, float_class)
 
 
-def numerical_compatible(fn):
+def numerical_compatible(fn: Callable):
     @wraps(fn)
-    def numerical_compatible_fn(this, other):
+    def numerical_compatible_fn(this: Int, other):
+        assert(type(other) in [Int, Float, Bool])
         result = fn(this.value, other.value)
         if type(result) is int:
             return Int(result)
-        else:
+        elif type(result) is float:
             return Float(result)
+        elif type(result) is bool:
+            return Bool(result)
     return numerical_compatible_fn
 
 
 numerical_methods = {
-    "operator_add":            (lambda x, y: x + y),
-    "operator_substract_left": (lambda x, y: x - y),
-    "operator_multiply":       (lambda x, y: x * y),
-    "operator_divide_left":    (lambda x, y: x / y),
-    "operator_modulo_left":    (lambda x, y: x % y),
-    "operator_exponent_left":  (lambda x, y: x ** y)
+    "#add":                 (lambda x, y: x + y),
+    "#substract_left":      (lambda x, y: x - y),
+    "#multiply":            (lambda x, y: x * y),
+    "#divide_left":         (lambda x, y: x / y),
+    "#modulo_left":         (lambda x, y: x % y),
+    "#exponent_left":       (lambda x, y: x ** y),
+    "#equal":               (lambda x, y: x == y),
+    "#not_equal":           (lambda x, y: x != y),
+    "#lesser_left":         (lambda x, y: x < y),
+    "#lesser_equal_left":   (lambda x, y: x <= y),
+    "#greater_left":        (lambda x, y: x > y),
+    "#greater_equal_left":  (lambda x, y: x >= y),
+    "#substract_right":     (lambda x, y: y - x),
+    "#divide_right":        (lambda x, y: y / x),
+    "#modulo_right":        (lambda x, y: y % x),
+    "#exponent_right":      (lambda x, y: y ** x),
+    "#lesser_right":        (lambda x, y: y < x),
+    "#lesser_equal_right":  (lambda x, y: y <= x),
+    "#greater_right":       (lambda x, y: y > x),
+    "#greater_equal_right": (lambda x, y: y >= x)
+
 }
 
 int_class = Class("int",
@@ -53,4 +72,4 @@ forward_declarations["Int"] = Int
 forward_declarations["Float"] = Float
 
 
-print(OperatorCall("multiply", [OperatorCall("add", [Constant(Int(7)), Constant(Int(2))]), Constant(Int(2))]).eval({}).value)
+print(OperatorCall("#multiply", [OperatorCall("#add", [Constant(Int(7)), Constant(Int(2))]), Constant(Int(2))]).eval({}).value)

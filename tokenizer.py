@@ -31,7 +31,7 @@ class Token:
 
 int_regex = re.compile(r"^(\+|-)?[0-9]+")
 float_regex = re.compile(r"^(\+|-)?[0-9]*\.[0-9]+")
-name_regex = re.compile(r"^[A-Za-z_][A-Za-z_0-9]*")
+name_regex = re.compile(r"^[\#A-Za-z_][A-Za-z_0-9]*")
 
 
 class Tokenizer:
