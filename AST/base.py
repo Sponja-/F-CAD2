@@ -105,8 +105,9 @@ class MethodCall(IComputable):  # Or FunctionCall
         new_locals = {name: arg.eval(locals)
                       for name, arg in zip(f.arg_names, self.arguments)}
         if f.var_arg_name is not None:
-            new_locals[f.var_arg_name] = Array([arg.eval(locals)
-                                                for arg in self.arguments[len(f.arg_names):]])
+            new_locals[f.var_arg_name] = forward_declarations["Array"](
+                [arg.eval(locals) for arg in self.arguments[len(f.arg_names):]]
+            )
         if self.object is not None:
             new_locals["this"] = self.object.eval(locals)
         return f.operation.eval(new_locals)
@@ -147,6 +148,7 @@ class PrimitiveCall(IComputable):
 
 def to_primitive_function(func: Callable) -> Function:
     specs = getfullargspec(func)
+
     arg_names = specs[0]
     var_arg_name = specs[1]
 
@@ -158,7 +160,7 @@ def to_primitive_function(func: Callable) -> Function:
             return func(*[locals[name] for name in arg_names],
                         *locals[var_arg_name].elements)
 
-    return Function(arg_names,
+    return Function([name for name in arg_names if name != "this"],
                     PrimitiveCall(primitive_func),
                     var_arg_name=var_arg_name)
 
@@ -170,27 +172,33 @@ class OperatorCall(IComputable):
 
     def eval(self, locals: Dict[str, Type[Object]]) -> Object:
         objs: List[Object] = [arg.eval(locals) for arg in self.arguments]
-        all_primitive = True
         method = None
         owner_of_method = None
         position = 0
 
-        for i, obj in enumerate(objs):
-            if not isinstance(obj, IPrimitiveType):
-                all_primitive = False
-                if obj.type.has_method(self.name):
-                    owner_of_method = obj
-                    method = obj.type.get_method(self.name)
-                    position = i
-                    break
-            elif method is None:
-                if obj.type.has_method(self.name):
-                    owner_of_method = obj
-                    method = obj.type.get_method(self.name)
-                    position = i
+        if len(self.arguments == 2) and objs[0].type.has_method(self.name + "_left"):
+            method = objs[0].type.get_method(self.name + "_left")
+            owner_of_method = objs[0]
+            position = 0
+        elif len(self.arguments == 2) and objs[1].type.has_method(self.name + "_right"):
+            method = objs[1].type.get_method(self.name + "_right")
+            owner_of_method = objs[1]
+            position = 1
+        else:
+            for i, obj in enumerate(objs):
+                if not isinstance(obj, IPrimitiveType):
+                    if obj.type.has_method(self.name):
+                        owner_of_method = obj
+                        method = obj.type.get_method(self.name)
+                        position = i
+                        break
+                elif method is None:
+                    if obj.type.has_method(self.name):
+                        owner_of_method = obj
+                        method = obj.type.get_method(self.name)
+                        position = i
 
-        if method is None or (not all_primitive
-           and isinstance(owner_of_method, IPrimitiveType)):
+        if method is None:
             raise f"Cant perform {self.name} on objects of types\
                     {', '.join([str(obj.type) for obj in objs])}"
 
