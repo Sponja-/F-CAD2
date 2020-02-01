@@ -1,5 +1,5 @@
 from base import IComputable, Object, none_object, Variable
-from typing import Type, Dict, Iterable
+from typing import Type, Dict, Iterable, Optional
 
 
 class Assignment(IComputable):
@@ -7,7 +7,7 @@ class Assignment(IComputable):
         self.object = object
         self.value = value
 
-    def eval(self, locals: Dict[str, Type[Object]]) -> Object:
+    def eval(self, locals: Dict[str, Type[Object]]) -> Type[Object]:
         self.object.eval(locals).set_value(self.value.eval(locals))
         return none_object
 
@@ -16,39 +16,43 @@ class Return(IComputable):
     def __init__(self, value: Type[IComputable]):
         self.value = value
 
-    def eval(self, locals: Dict[str, Type[Object]]) -> Object:
+    def eval(self, locals: Dict[str, Type[Object]]) -> Type[Object]:
         result = self.value.eval(locals)
         result.is_return = True
         return result
 
 
-class Statement(IComputable):
-    def __init__(self, expression: Type[IComputable]):
-        self.expression = expression
-
-    def eval(self, locals: Dict[str, Type[Object]]) -> Object:
-        result = self.expression.eval(locals)
+class IStatement(IComputable):
+    def exec(self, locals: Dict[str, Type[Object]]) -> Optional[Type[Object]]:
+        result = self.eval(locals)
         if result.is_return:
-            result.is_return = False
             return result
         return None
 
 
+class ExprStatement(IComputable):
+    def __init__(self, expression: Type[IComputable]):
+        self.expression = expression
+
+    def eval(self, locals: Dict[str, Type[Object]]) -> Object:
+        return self.expression.eval(locals)
+
+
 class StatementList(IComputable):
     def __init__(self,
-                 statements: Iterable[Statement],
+                 statements: Iterable[Type[IStatement]],
                  scoped: bool = True) -> None:
         self.statements = statements
         self.scoped = scoped
 
-    def eval(self, locals: Dict[str, Type[Object]]) -> Object:
+    def eval(self, locals: Dict[str, Type[Object]]) -> Type[Object]:
         old_globals: Dict[str, Object] = {}
-        for statement in StatementList:
+        for statement in self.statements:
             if (isinstance(statement.expression, Assignment) and
                isinstance(statement.expression.object, Variable)):
                 name = statement.expression.object.name
                 old_globals[name] = Variable.table.get(name, None)
-            result = statement.eval(locals)
+            result = statement.exec(locals)
             if result is not None:
                 return result
         return none_object

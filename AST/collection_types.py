@@ -2,7 +2,7 @@ from typing import List, Type
 from base import Class, IPrimitiveType, Object, forward_declarations
 from base import NoneType, none_object, to_primitive_function
 from base import OperatorCall, Constant
-from bool import Bool
+from logic import Bool
 from numerical import Int
 
 
@@ -56,12 +56,18 @@ def array_pop(this: Array, index: Int) -> NoneType:
 def array_equals(this: Array, other: Array) -> Bool:  # TODO
     if len(this.elements) != len(other.elements):
         return Bool(False)
-    for elem1, elem2 in zip(this.elements, other.elements):
-        equal = OperatorCall("#equal",
-                             [Constant(this), Constant(other)]).eval({}).value
-        if not equal:
-            return Bool(False)
-    return Bool(True)
+    return Bool(all(OperatorCall("#equal", [Constant(elem1), Constant(elem2)]).eval({}).value
+                for elem1, elem2 in zip(this.elements, other.elements)))
+
+
+def array_to_bool(this: Array) -> Bool:
+    return Bool(bool(len(this.elements)))
+
+
+def array_contains(this: Array, value: Type[Object]) -> Bool:
+    const_value = Constant(value)
+    return Bool(any(OperatorCall("#equal", [Constant(elem), const_value]).eval({}).value
+                    for elem in this.elements))
 
 
 array_class = Class("array", {
@@ -73,7 +79,8 @@ array_class = Class("array", {
     "insert":               to_primitive_function(array_insert),
     "add":                  to_primitive_function(array_add),
     "pop":                  to_primitive_function(array_pop),
-    "#equal":               to_primitive_function(array_equals)
+    "#equal":               to_primitive_function(array_equals),
+    "#to_bool":             to_primitive_function(array_to_bool)
 }, {})
 
 

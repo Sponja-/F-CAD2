@@ -2,7 +2,7 @@ from base import Class, Constant, OperatorCall, forward_declarations
 from base import to_primitive_function, IPrimitiveType
 from typing import Union, Callable
 from functools import wraps
-from bool import Bool
+from logic import Bool
 
 
 class Numerical(IPrimitiveType):
@@ -35,6 +35,10 @@ def numerical_compatible(fn: Callable):
     return numerical_compatible_fn
 
 
+def numerical_to_bool(this: Union[Int, Float]) -> Bool:
+    return Bool(bool(this.value))
+
+
 numerical_methods = {
     "#add":                 (lambda x, y: x + y),
     "#substract_left":      (lambda x, y: x - y),
@@ -62,11 +66,12 @@ numerical_methods = {
 int_class = Class("int",
                   {name: to_primitive_function(numerical_compatible(method))
                    for name, method in numerical_methods.items()}, {})
+int_class["#to_bool"] = to_primitive_function(numerical_to_bool)
 
 float_class = Class("float",
                     {name: to_primitive_function(numerical_compatible(method))
                      for name, method in numerical_methods.items()}, {})
-
+float_class["#to_bool"] = to_primitive_function(numerical_to_bool)
 
 forward_declarations["Int"] = Int
 forward_declarations["Float"] = Float

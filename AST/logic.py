@@ -10,8 +10,10 @@ class Bool(IPrimitiveType):
 
 
 def try_bool(obj: Type[Object]):
+    if type(obj) is Bool:
+        return obj
     if obj.type.has_method("#to_bool"):
-        return obj.type.get_method().operation.eval({"this": obj})
+        return obj.type.get_method("#to_bool").operation.eval({"this": obj})
     raise f"Could not convert {obj} to bool"
 
 

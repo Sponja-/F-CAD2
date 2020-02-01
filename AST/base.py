@@ -110,7 +110,9 @@ class MethodCall(IComputable):  # Or FunctionCall
             )
         if self.object is not None:
             new_locals["this"] = self.object.eval(locals)
-        return f.operation.eval(new_locals)
+        result = f.operation.eval(new_locals)
+        result.is_return = False
+        return result
 
 
 class MemberAccess(IComputable, IAssignable):
@@ -179,7 +181,7 @@ def best_fitting_method(operator_name, obj, pos, length):
     return None
 
 
-def resolve_overload(operator_name, objects):  # TODO: Optimize
+def resolve_overload(operator_name, objects):
     best_method = None
     owner = None
     position = 0
@@ -223,7 +225,10 @@ class OperatorCall(IComputable):
 
         new_locals["this"] = owner
 
-        return method.operation.eval(new_locals)
+        result = method.operation.eval(new_locals)
+        result.is_return = False
+
+        return result
 
 
 none_class = Class("none", {}, {})
