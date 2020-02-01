@@ -2,6 +2,7 @@ from base import Class, Constant, OperatorCall
 from base import to_primitive_function, IPrimitiveType
 from typing import Union
 from functools import wraps
+import collection_types
 
 
 class Numerical(IPrimitiveType):
@@ -32,22 +33,22 @@ def numerical_compatible(fn):
 
 
 numerical_methods = {
-    "operator_add":         numerical_compatible(lambda x, y: x + y),
-    "operator_substract":   numerical_compatible(lambda x, y: x - y),
-    "operator_multiply":    numerical_compatible(lambda x, y: x * y),
-    "operator_divide":      numerical_compatible(lambda x, y: x / y),
-    "operator_modulo":      numerical_compatible(lambda x, y: x % y),
-    "operator_exponent":    numerical_compatible(lambda x, y: x ** y),
-    "operator_opposite":    numerical_compatible(lambda x: -x),
-    "abs":                  numerical_compatible(lambda x: abs(x))
+    "operator_add":         (lambda x, y: x + y),
+    "operator_substract":   (lambda x, y: x - y),
+    "operator_multiply":    (lambda x, y: x * y),
+    "operator_divide":      (lambda x, y: x / y),
+    "operator_modulo":      (lambda x, y: x % y),
+    "operator_exponent":    (lambda x, y: x ** y),
+    "operator_opposite":    (lambda x: -x),
+    "abs":                  (lambda x: abs(x))
 }
 
 int_class = Class("int",
-                  {name: to_primitive_function(method)
+                  {name: to_primitive_function(numerical_compatible(method))
                    for name, method in numerical_methods.items()}, {})
 
 float_class = Class("float",
-                    {name: to_primitive_function(method)
+                    {name: to_primitive_function(numerical_compatible(method))
                      for name, method in numerical_methods.items()}, {})
 
 print(OperatorCall("multiply", [OperatorCall("add", [Constant(Int(7)), Constant(Int(2))]), Constant(Int(2))]).eval({}).value)

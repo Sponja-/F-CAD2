@@ -1,7 +1,9 @@
-from typing import Dict, Iterable, Optional, Callable, List
+from typing import Dict, Iterable, Optional, Callable, List, Type
 from abc import ABC, abstractmethod
 from inspect import getfullargspec
 from functools import wraps
+
+forward_declarations = {}
 
 
 class Class:
@@ -10,7 +12,7 @@ class Class:
     def __init__(self,
                  name: str,
                  methods: Dict[str, "Function"],
-                 statics: Dict[str, "Object"],
+                 statics: Dict[str, "Type[Object]"],
                  parent: Optional["Class"] = None) -> None:
         self.name = name
         self.methods = methods
@@ -33,7 +35,7 @@ class Class:
 class Object:
     def __init__(self, type: Class) -> None:
         self.type = type
-        self.attributes = {}
+        self.attributes: Dict[str, "Type[Object]"] = {}
         self.is_return = False
 
 
@@ -43,7 +45,7 @@ function_class = Class("function", {}, {})
 class Function(Object):
     def __init__(self,
                  arg_names: Iterable[str],
-                 operation: "IComputable",
+                 operation: "Type[IComputable]",
                  **kwargs) -> None:
         self.arg_names = arg_names
         self.operation = operation
@@ -53,21 +55,21 @@ class Function(Object):
 
 class IComputable(ABC):
     @abstractmethod
-    def eval(self, locals: Dict[str, Object]) -> Object:
+    def eval(self, locals: Dict[str, Type[Object]]) -> Object:
         pass
 
 
 class IAssignable(ABC):
     @abstractmethod
-    def set_value(self, value: Object) -> None:
+    def set_value(self, value: Type[Object]) -> None:
         pass
 
 
 class Constant(IComputable):
-    def __init__(self, value: Object) -> None:
+    def __init__(self, value: Type[Object]) -> None:
         self.value = value
 
-    def eval(self, locals: Dict[str, Object]) -> Object:
+    def eval(self, locals: Dict[str, Type[Object]]) -> Object:
         return self.value
 
 
@@ -77,7 +79,7 @@ class Variable(IComputable, IAssignable):
     def __init__(self, name: str) -> None:
         self.name = name
 
-    def eval(self, locals: Dict[str, Object]) -> Object:
+    def eval(self, locals: Dict[str, Type[Object]]) -> Object:
         if self.name in locals:
             return locals[self.name]
         if self.name in Variable.table:
@@ -91,13 +93,13 @@ class Variable(IComputable, IAssignable):
 class MethodCall(IComputable):  # Or FunctionCall
     def __init__(self,
                  object: Optional[IComputable],
-                 function: IComputable,
+                 function: Type[IComputable],
                  arguments: Iterable[IComputable]) -> None:
         self.object = object
         self.function = function
         self.arguments = arguments
 
-    def eval(self, locals: Dict[str, Object]) -> Object:
+    def eval(self, locals: Dict[str, Type[Object]]) -> Object:
         f = self.function.eval(locals)
         assert(len(f.arg_names) <= len(self.arguments))
         new_locals = {name: arg.eval(locals)
@@ -111,11 +113,11 @@ class MethodCall(IComputable):  # Or FunctionCall
 
 
 class MemberAccess(IComputable, IAssignable):
-    def __init__(self, object: IComputable, name: str) -> None:
+    def __init__(self, object: Type[IComputable], name: str) -> None:
         self.object = object
         self.name = name
 
-    def eval(self, locals: Dict[str, Object]) -> Object:
+    def eval(self, locals: Dict[str, Type[Object]]) -> Object:
         obj = self.object.eval(locals)
         if self.name in obj.attributes:
             return obj.attributes[self.name]
@@ -136,10 +138,10 @@ class IPrimitiveType(Object):
 
 class PrimitiveCall(IComputable):
     def __init__(self,
-                 function: Callable[[Dict[str, Object]], Object]) -> None:
+                 function: Callable[[Dict[str, Type[Object]]], Type[Object]]) -> None:
         self.function = function
 
-    def eval(self, locals: Dict[str, Object]) -> Object:
+    def eval(self, locals: Dict[str, Type[Object]]) -> Object:
         return self.function(locals)
 
 
@@ -162,12 +164,12 @@ def to_primitive_function(func: Callable) -> Function:
 
 
 class OperatorCall(IComputable):
-    def __init__(self, name: str, arguments: Iterable[IComputable]) -> None:
+    def __init__(self, name: str, arguments: Iterable[Type[IComputable]]) -> None:
         self.name = f"operator_{name}"
         self.arguments = arguments
 
-    def eval(self, locals: Dict[str, Object]) -> Object:
-        objs = [obj.eval(locals) for obj in self.arguments]
+    def eval(self, locals: Dict[str, Type[Object]]) -> Object:
+        objs: List[Object] = [arg.eval(locals) for arg in self.arguments]
         all_primitive = True
         method = None
         owner_of_method = None
@@ -197,20 +199,19 @@ class OperatorCall(IComputable):
         new_locals = {name: obj for name, obj in zip(method.arg_names, objs)}
 
         if method.var_arg_name is not None:
-            new_locals[method.var_arg_name] = Array(objs[len(method.arg_names) - 1:])  # TODO
+            new_locals[method.var_arg_name] = forward_declarations["Array"](objs[len(method.arg_names) - 1:])  # TODO
 
         new_locals["this"] = owner_of_method
-
-        print(new_locals)
 
         return method.operation.eval(new_locals)
 
 
-array_class = Class("array", {
-
-}, {})
+none_class = Class("none", {}, {})
 
 
-class Array(Object):
-    def __init__(self, elements: List[Object]) -> Object:
-        self.elements = elements
+class NoneType(IPrimitiveType):
+    def __init__(self) -> None:
+        super().__init__(none_class)
+
+
+none_object = NoneType()
