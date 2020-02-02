@@ -37,6 +37,7 @@ class Object:
         self.type = type
         self.attributes: Dict[str, "Type[Object]"] = {}
         self.is_return = False
+        self.is_except = False
 
 
 function_class = Class("function", {}, {})
@@ -90,12 +91,10 @@ class Variable(IComputable, IAssignable):
         Variable.table[self.name] = value
 
 
-class MethodCall(IComputable):  # Or FunctionCall
+class FunctionCall(IComputable):  # Or FunctionCall
     def __init__(self,
-                 object: Optional[IComputable],
                  function: Type[IComputable],
                  arguments: Iterable[IComputable]) -> None:
-        self.object = object
         self.function = function
         self.arguments = arguments
 
@@ -108,9 +107,32 @@ class MethodCall(IComputable):  # Or FunctionCall
             new_locals[f.var_arg_name] = forward_declarations["Array"](
                 [arg.eval(locals) for arg in self.arguments[len(f.arg_names):]]
             )
-        if self.object is not None:
-            new_locals["this"] = self.object.eval(locals)
         result = f.operation.eval(new_locals)
+        result.is_return = False
+        return result
+
+
+class MethodCall(IComputable):
+    def __init__(self,
+                 object: Type[IComputable],
+                 method_name: str,
+                 arguments: Iterable[IComputable]):
+        self.object = object
+        self.method_name = method_name
+        self.arguments = arguments
+
+    def eval(self, locals: Dict[str, Type[Object]]) -> Type[Object]:
+        obj = self.object.eval(locals)
+        method = obj.type.get_method(self.method_name)
+        assert(len(method.arg_names) <= len(self.arguments))
+        new_locals = {name: arg.eval(locals)
+                      for name, arg in zip(method.arg_names, self.arguments)}
+        if method.var_arg_name is not None:
+            new_locals[method.var_arg_name] = forward_declarations["Array"](
+                [arg.eval(locals) for arg in self.arguments[len(method.arg_names):]]
+            )
+        new_locals["this"] = obj
+        result = method.operation.eval(new_locals)
         result.is_return = False
         return result
 
@@ -240,3 +262,12 @@ class NoneType(IPrimitiveType):
 
 
 none_object = NoneType()
+
+
+def unpack(obj: Type[Object]) -> List[Type[Object]]:
+    result = []
+    iterator = obj.type.get_method("#iter").operation.eval({"this": obj})
+    value = iterator.type.get_method("#next").operation.eval({"this": iterator})
+    while type(value) is not forward_declarations["StopIteration"]:
+        result.append(value)
+        value = iterator.type.get_method("#next").operation.eval({"this": iterator})

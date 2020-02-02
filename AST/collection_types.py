@@ -4,11 +4,13 @@ from base import NoneType, none_object, to_primitive_function
 from base import OperatorCall, Constant
 from logic import Bool
 from numerical import Int
+from exceptions import Raise, StopIteration
 
 
 class Array(IPrimitiveType):
     def __init__(self, elements: List[Type[Object]]) -> None:
         self.elements = elements
+        self.iter_current = 0
         super().__init__(array_class)
 
 
@@ -70,6 +72,20 @@ def array_contains(this: Array, value: Type[Object]) -> Bool:
                     for elem in this.elements))
 
 
+def array_iter(this: Array) -> Array:
+    this.iter_current = 0
+    return this
+
+
+def array_next(this: Array) -> Array:
+    if this.iter_current <= len(this.elements):
+        result = this.elements[this.iter_current]
+        this.iter_current += 1
+        return result
+    else:
+        return Raise(Constant(StopIteration)).eval({})
+
+
 array_class = Class("array", {
     "#get_item_left":       to_primitive_function(array_get_item),
     "#set_item_0":          to_primitive_function(array_set_item),
@@ -80,7 +96,10 @@ array_class = Class("array", {
     "add":                  to_primitive_function(array_add),
     "pop":                  to_primitive_function(array_pop),
     "#equal":               to_primitive_function(array_equals),
-    "#to_bool":             to_primitive_function(array_to_bool)
+    "#to_bool":             to_primitive_function(array_to_bool),
+    "#contains":            to_primitive_function(array_contains),
+    "#iter":                to_primitive_function(array_iter),
+    "#next":                to_primitive_function(array_next)
 }, {})
 
 
