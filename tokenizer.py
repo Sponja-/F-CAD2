@@ -25,6 +25,9 @@ class Token:
         self.type = type
         self.value = value
 
+    def __eq__(self, other):
+        return self.type == other.type and self.value == other.value
+
     def __repr__(self) -> str:
         return f"Token({str(self.type)}, {str(self.value)})"
 
@@ -118,20 +121,21 @@ class Tokenizer:
         result = ""
         self.advance()
 
-        while self.char != '"':
+        while self.char != '\"':
             if self.char == '\\':
                 self.advance()
                 result += Tokenizer.escape_chars[self.char]
             else:
                 result += self.char
             self.advance()
+        self.advance()
 
         return result
 
     def get_next_token(self) -> Token:
         while self.char != '\0':
 
-            if self.char.isspace:
+            if self.char.isspace():
                 self.skip_whitespace()
                 continue
 
@@ -160,6 +164,10 @@ class Tokenizer:
                 start, end = match.span()
                 result = Token(TokenType.NAME,
                                self.text[self.pos:self.pos + end])
+                if result.value in Tokenizer.keywords:
+                    result.type = TokenType.KEYWORD
+                elif result.value in Tokenizer.named_operators:
+                    result.type = TokenType.OPERATOR
                 self.advance(end)
                 return result
 

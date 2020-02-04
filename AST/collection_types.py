@@ -1,10 +1,10 @@
+from .base import Class, IPrimitiveType, Object, forward_declarations
+from .base import NoneType, none_object, to_primitive_function
+from .base import OperatorCall, Constant
+from .logic import Bool
+from .numerical import Int
+from .exceptions import Raise, StopIteration
 from typing import List, Type
-from base import Class, IPrimitiveType, Object, forward_declarations
-from base import NoneType, none_object, to_primitive_function
-from base import OperatorCall, Constant
-from logic import Bool
-from numerical import Int
-from exceptions import Raise, StopIteration
 
 
 class Array(IPrimitiveType):

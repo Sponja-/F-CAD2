@@ -1,5 +1,5 @@
-from base import Object, IComputable, IPrimitiveType, forward_declarations
-from statements import IStatement, StatementList
+from .base import Object, IComputable, IPrimitiveType, forward_declarations
+from .statements import IStatement, StatementList
 from typing import Dict, Type, Optional
 
 

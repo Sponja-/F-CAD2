@@ -1,5 +1,5 @@
-from base import Class, IPrimitiveType, forward_declarations, Object
-from base import IComputable, to_primitive_function
+from .base import Class, IPrimitiveType, forward_declarations, Object
+from .base import IComputable, to_primitive_function
 from typing import Dict, Type
 
 

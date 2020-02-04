@@ -1,7 +1,7 @@
-from base import IComputable, Object, none_object
-from base import forward_declarations, unpack
-from statements import IStatement, StatementList
-from logic import try_bool
+from .base import IComputable, Object, none_object
+from .base import forward_declarations, unpack
+from .statements import IStatement, StatementList
+from .logic import try_bool
 from typing import Dict, Type, Optional, List
 
 

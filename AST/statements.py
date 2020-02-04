@@ -1,5 +1,4 @@
-from base import IComputable, Object, none_object, Variable
-from base import forward_declarations
+from .base import IComputable, Object, none_object, Variable
 from typing import Type, Dict, Iterable
 
 
@@ -27,8 +26,9 @@ class Assignment(IStatement):
         self.value = value
 
     def eval(self, locals: Dict[str, Type[Object]]) -> Type[Object]:
-        self.object.eval(locals).set_value(self.value.eval(locals))
-        return none_object
+        value = self.value.eval(locals)
+        self.object.eval(locals).set_value(value)
+        return value
 
 
 class ExprStatement(IComputable):

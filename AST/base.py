@@ -6,52 +6,12 @@ from functools import wraps
 forward_declarations = {}
 
 
-class Class:
-    table: Dict[str, "Class"] = {}
-
-    def __init__(self,
-                 name: str,
-                 methods: Dict[str, "Function"],
-                 statics: Dict[str, "Type[Object]"],
-                 parent: Optional["Class"] = None) -> None:
-        self.name = name
-        self.methods = methods
-        self.static_attributes = statics
-        self.parent = parent
-        Class.table[name] = self
-
-    def has_method(self, name: str) -> bool:
-        return (name in self.methods or
-                (self.parent is not None and self.parent.has_method(name)))
-
-    def get_method(self, name: str) -> "Function":
-        if name in self.methods:
-            return self.methods[name]
-        elif self.parent is not None:
-            return self.parent.get_method(name)
-        raise f"Class {self.name} has no method \"{name}\""
-
-
 class Object:
-    def __init__(self, type: Class) -> None:
+    def __init__(self, type: "Class") -> None:
         self.type = type
         self.attributes: Dict[str, "Type[Object]"] = {}
         self.is_return = False
         self.is_except = False
-
-
-function_class = Class("function", {}, {})
-
-
-class Function(Object):
-    def __init__(self,
-                 arg_names: Iterable[str],
-                 operation: "Type[IComputable]",
-                 **kwargs) -> None:
-        self.arg_names = arg_names
-        self.operation = operation
-        self.var_arg_name = kwargs.get("var_arg_name", None)
-        super().__init__(function_class)
 
 
 class IComputable(ABC):
@@ -170,7 +130,7 @@ class PrimitiveCall(IComputable):
         return self.function(locals)
 
 
-def to_primitive_function(func: Callable) -> Function:
+def to_primitive_function(func: Callable) -> "Function":
     specs = getfullargspec(func)
 
     arg_names = specs[0]
@@ -187,6 +147,52 @@ def to_primitive_function(func: Callable) -> Function:
     return Function([name for name in arg_names if name != "this"],
                     PrimitiveCall(primitive_func),
                     var_arg_name=var_arg_name)
+
+
+class Class(IPrimitiveType):
+    def __init__(self,
+                 name: str,
+                 methods: Dict[str, "Function"],
+                 statics: Dict[str, "Type[Object]"],
+                 parent: Optional["Class"] = None) -> None:
+        self.name = name
+        self.methods = methods
+        self.static_attributes = statics
+        self.parent = parent
+
+    def has_method(self, name: str) -> bool:
+        return (name in self.methods or
+                (self.parent is not None and self.parent.has_method(name)))
+
+    def get_method(self, name: str) -> "Function":
+        if name in self.methods:
+            return self.methods[name]
+        elif self.parent is not None:
+            return self.parent.get_method(name)
+        raise f"Class {self.name} has no method \"{name}\""
+
+
+def class_new(this, methods, statics, parent):
+    
+
+
+class_class = Class("class", {
+    "#new": to_primitive_function()
+}, {})
+
+
+function_class = Class("function", {}, {})
+
+
+class Function(IPrimitiveType):
+    def __init__(self,
+                 arg_names: Iterable[str],
+                 operation: "Type[IComputable]",
+                 **kwargs) -> None:
+        self.arg_names = arg_names
+        self.operation = operation
+        self.var_arg_name = kwargs.get("var_arg_name", None)
+        super().__init__(function_class)
 
 
 def best_fitting_method(operator_name, obj, pos, length):
