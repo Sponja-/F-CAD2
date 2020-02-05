@@ -86,4 +86,5 @@ class ForStatement(IStatement):
                 continue
             if result.is_return or result.is_except:
                 return result
+            value = iterator.type.get_method("#next").operation.eval({"this": iterator})
         return none_object

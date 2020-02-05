@@ -1,7 +1,7 @@
 from .base import Class, forward_declarations
 from .base import to_primitive_function, IPrimitiveType
 from .logic import Bool
-from typing import Union, Callable
+from typing import Union, Callable, Type
 from functools import wraps
 
 
@@ -35,8 +35,12 @@ def numerical_compatible(fn: Callable):
     return numerical_compatible_fn
 
 
-def numerical_to_bool(this: Union[Int, Float]) -> Bool:
+def numerical_to_bool(this: Type[Numerical]) -> Bool:
     return Bool(bool(this.value))
+
+
+def numerical_hash(this: Type[Numerical]) -> Int:
+    return Int(hash(this.value))
 
 
 numerical_methods = {
@@ -67,14 +71,13 @@ int_class = Class("int",
                   {name: to_primitive_function(numerical_compatible(method))
                    for name, method in numerical_methods.items()}, {})
 int_class.methods["#to_bool"] = to_primitive_function(numerical_to_bool)
+int_class.methods["#hash"] = to_primitive_function(numerical_hash)
 
 float_class = Class("float",
                     {name: to_primitive_function(numerical_compatible(method))
                      for name, method in numerical_methods.items()}, {})
 float_class.methods["#to_bool"] = to_primitive_function(numerical_to_bool)
+float_class.methods["#hash"] = to_primitive_function(numerical_hash)
 
 forward_declarations["Int"] = Int
 forward_declarations["Float"] = Float
-
-
-print(OperatorCall("#multiply", [OperatorCall("#add", [Constant(Int(7)), Constant(Int(2))]), Constant(Int(2))]).eval({}).value)

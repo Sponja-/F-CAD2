@@ -60,9 +60,14 @@ def bool_not_equal(this: Bool, other: Bool) -> Bool:
     return Bool(this.value != other.value)
 
 
+def bool_hash(this: Bool):
+    return forward_declarations["Int"](hash(this.value))
+
+
 bool_class = Class("bool", {
     "#equal":       to_primitive_function(bool_equal),
-    "#not_equal":   to_primitive_function(bool_not_equal)
+    "#not_equal":   to_primitive_function(bool_not_equal),
+    "#hash":        to_primitive_function(bool_hash)
 }, {})
 
 

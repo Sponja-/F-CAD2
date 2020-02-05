@@ -13,6 +13,9 @@ class Object:
         self.is_return = False
         self.is_except = False
 
+    def __hash__(self):
+        return self.type.get_method("#hash").eval({"this": self}).value
+
 
 class IComputable(ABC):
     @abstractmethod
@@ -159,6 +162,7 @@ class Class(IPrimitiveType):
         self.methods = methods
         self.static_attributes = statics
         self.parent = parent
+        Variable.table[self.name] = self
 
     def has_method(self, name: str) -> bool:
         return (name in self.methods or
@@ -172,8 +176,8 @@ class Class(IPrimitiveType):
         raise f"Class {self.name} has no method \"{name}\""
 
 
-def class_new(this, methods, statics, parent):
-    
+def class_constructor(this, methods, statics, parent):
+    pass
 
 
 class_class = Class("class", {
