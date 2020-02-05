@@ -43,6 +43,10 @@ def numerical_hash(this: Type[Numerical]) -> Int:
     return Int(hash(this.value))
 
 
+def numerical_to_string(this: Type[Numerical]):
+    return forward_declarations["String"](str(this.value))
+
+
 numerical_methods = {
     "#add":                 (lambda x, y: x + y),
     "#substract_left":      (lambda x, y: x - y),
@@ -72,12 +76,14 @@ int_class = Class("int",
                    for name, method in numerical_methods.items()}, {})
 int_class.methods["#to_bool"] = to_primitive_function(numerical_to_bool)
 int_class.methods["#hash"] = to_primitive_function(numerical_hash)
+int_class.methods["#to_string"] = to_primitive_function(numerical_to_string)
 
 float_class = Class("float",
                     {name: to_primitive_function(numerical_compatible(method))
                      for name, method in numerical_methods.items()}, {})
 float_class.methods["#to_bool"] = to_primitive_function(numerical_to_bool)
 float_class.methods["#hash"] = to_primitive_function(numerical_hash)
+float_class.methods["#to_string"] = to_primitive_function(numerical_to_string)
 
 forward_declarations["Int"] = Int
 forward_declarations["Float"] = Float

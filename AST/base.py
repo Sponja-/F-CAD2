@@ -16,6 +16,9 @@ class Object:
     def __hash__(self):
         return self.type.get_method("#hash").eval({"this": self}).value
 
+    def __repr__(self):
+        return self.type.get_method("#to_string").eval({"this": self}).value
+
 
 class IComputable(ABC):
     @abstractmethod
@@ -163,6 +166,7 @@ class Class(IPrimitiveType):
         self.static_attributes = statics
         self.parent = parent
         Variable.table[self.name] = self
+        super().__init__(class_class)
 
     def has_method(self, name: str) -> bool:
         return (name in self.methods or
@@ -176,16 +180,15 @@ class Class(IPrimitiveType):
         raise f"Class {self.name} has no method \"{name}\""
 
 
-def class_constructor(this, methods, statics, parent):
-    pass
+def class_instance(this: Class, args: Iterable[Type[Object]]):
+    result = Object(this)
+    MethodCall(result, this.get_method("#new"), [Constant(arg) for arg in args])
+    return result
 
 
 class_class = Class("class", {
-    "#new": to_primitive_function()
+    "#instance": to_primitive_function(class_instance)
 }, {})
-
-
-function_class = Class("function", {}, {})
 
 
 class Function(IPrimitiveType):
@@ -197,6 +200,9 @@ class Function(IPrimitiveType):
         self.operation = operation
         self.var_arg_name = kwargs.get("var_arg_name", None)
         super().__init__(function_class)
+
+
+function_class = Class("function", {}, {})
 
 
 def best_fitting_method(operator_name, obj, pos, length):
@@ -281,3 +287,7 @@ def unpack(obj: Type[Object]) -> List[Type[Object]]:
     while type(value) is not forward_declarations["StopIteration"]:
         result.append(value)
         value = iterator.type.get_method("#next").operation.eval({"this": iterator})
+
+
+class CreateClass(IComputable):
+    def __init__(self, )

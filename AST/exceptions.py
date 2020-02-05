@@ -1,4 +1,4 @@
-from .base import Object, IComputable, IPrimitiveType, forward_declarations
+from .base import Object, IComputable, IPrimitiveType, forward_declarations, none_class
 from .statements import IStatement, StatementList
 from typing import Dict, Type, Optional
 
@@ -34,7 +34,7 @@ class TryCatch(IStatement):
 
 class StopIteration(IPrimitiveType):
     def __init__(self):
-        super().__init__()
+        super().__init__(none_class)
 
 
 forward_declarations["StopIteration"] = StopIteration

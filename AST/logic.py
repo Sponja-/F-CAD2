@@ -64,6 +64,10 @@ def bool_hash(this: Bool):
     return forward_declarations["Int"](hash(this.value))
 
 
+def bool_to_string(this: Bool):
+    return forward_declarations["String"]("true" if this.value else "false")
+
+
 bool_class = Class("bool", {
     "#equal":       to_primitive_function(bool_equal),
     "#not_equal":   to_primitive_function(bool_not_equal),
