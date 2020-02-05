@@ -1,4 +1,4 @@
-from .base import IPrimitiveType, Class
+from .base import IPrimitiveType, Class, to_primitive_function
 from .numerical import Int
 
 
@@ -32,5 +32,8 @@ def string_combine(this: String, other: String) -> String:
 
 
 string_class = Class("string", {
-
+    "#get_item":        to_primitive_function(string_get_item),
+    "#set_item":        to_primitive_function(string_set_item),
+    "#del_item":        to_primitive_function(string_del_item),
+    "#add_left":        to_primitive_function(string_combine)
 }, {})

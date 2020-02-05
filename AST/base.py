@@ -186,8 +186,17 @@ def class_instance(this: Class, args: Iterable[Type[Object]]):
     return result
 
 
+def class_new(this: Class, name, methods, statics, parent):
+    result = Class(name.value,
+                   {name.value: value for name, value in methods.elements.items()},
+                   {name.value: value for name, value in statics.elements.items()},
+                   parent.type if parent.type is not none_class else None)
+    return result
+
+
 class_class = Class("class", {
-    "#instance": to_primitive_function(class_instance)
+    "#instance":    to_primitive_function(class_instance),
+    "#new":         to_primitive_function(class_new)
 }, {})
 
 
@@ -287,7 +296,3 @@ def unpack(obj: Type[Object]) -> List[Type[Object]]:
     while type(value) is not forward_declarations["StopIteration"]:
         result.append(value)
         value = iterator.type.get_method("#next").operation.eval({"this": iterator})
-
-
-class CreateClass(IComputable):
-    def __init__(self, )
