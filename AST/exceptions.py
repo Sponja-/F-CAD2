@@ -1,5 +1,5 @@
-from .base import Object, IComputable, IPrimitiveType, none_class
-from .base import forward_declarations, CreatePath, none_object
+from .base import Object, IComputable, IPrimitiveType, Class, to_primitive_function
+from .base import CreatePath, none_object, register_primitive
 from .statements import IStatement, StatementList
 from typing import Type, Optional
 
@@ -40,7 +40,16 @@ class TryCatch(IStatement):
 
 class StopIteration(IPrimitiveType):
     def __init__(self):
-        super().__init__(none_class)
+        super().__init__(StopIteration_class)
 
 
-forward_declarations["StopIteration"] = StopIteration
+def StopIteration_new(this):
+    pass
+
+
+StopIteration_class = Class("StopIteration", {
+    "#new":     to_primitive_function(StopIteration_new)
+}, {})
+
+
+register_primitive("StopIteration", StopIteration, StopIteration_class)

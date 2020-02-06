@@ -1,10 +1,10 @@
 from .base import Class, IPrimitiveType, forward_declarations, Object
-from .base import IComputable, to_primitive_function
+from .base import IComputable, to_primitive_function, register_primitive
 from typing import Type
 
 
 class Bool(IPrimitiveType):
-    def __init__(self, value: bool) -> None:
+    def __init__(self, value: bool = False) -> None:
         self.value = value
         super().__init__(bool_class)
 
@@ -61,18 +61,24 @@ def bool_not_equal(this: Bool, other: Bool) -> Bool:
 
 
 def bool_hash(this: Bool):
-    return forward_declarations["Int"](hash(this.value))
+    return forward_declarations["int"](hash(this.value))
 
 
 def bool_to_string(this: Bool):
-    return forward_declarations["String"]("true" if this.value else "false")
+    return forward_declarations["string"]("true" if this.value else "false")
+
+
+def bool_to_int(this: Bool):
+    return forward_declarations["int"](int(this.value))
 
 
 bool_class = Class("bool", {
     "#equal":       to_primitive_function(bool_equal),
     "#not_equal":   to_primitive_function(bool_not_equal),
-    "#hash":        to_primitive_function(bool_hash)
+    "#hash":        to_primitive_function(bool_hash),
+    "#to_string":   to_primitive_function(bool_to_string),
+    "#to_int":      to_primitive_function(bool_to_int)
 }, {})
 
 
-forward_declarations["Bool"] = Bool
+register_primitive("bool", Bool, bool_class)

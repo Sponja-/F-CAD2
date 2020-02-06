@@ -1,4 +1,4 @@
-from .base import Class, forward_declarations
+from .base import Class, forward_declarations, register_primitive
 from .base import to_primitive_function, IPrimitiveType
 from .logic import Bool
 from typing import Union, Callable, Type
@@ -12,12 +12,12 @@ class Numerical(IPrimitiveType):
 
 
 class Int(Numerical):
-    def __init__(self, value: int) -> None:
+    def __init__(self, value: int = 0) -> None:
         super().__init__(value, int_class)
 
 
 class Float(Numerical):
-    def __init__(self, value: float) -> None:
+    def __init__(self, value: float = 0) -> None:
         super().__init__(value, float_class)
 
 
@@ -44,7 +44,7 @@ def numerical_hash(this: Type[Numerical]) -> Int:
 
 
 def numerical_to_string(this: Type[Numerical]):
-    return forward_declarations["String"](str(this.value))
+    return forward_declarations["string"](str(this.value))
 
 
 numerical_methods = {
@@ -85,5 +85,5 @@ float_class.methods["#to_bool"] = to_primitive_function(numerical_to_bool)
 float_class.methods["#hash"] = to_primitive_function(numerical_hash)
 float_class.methods["#to_string"] = to_primitive_function(numerical_to_string)
 
-forward_declarations["Int"] = Int
-forward_declarations["Float"] = Float
+register_primitive("int", Int, int_class)
+register_primitive("float", Float, float_class)

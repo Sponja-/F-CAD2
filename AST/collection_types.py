@@ -1,5 +1,5 @@
 from .base import Class, IPrimitiveType, Object, forward_declarations
-from .base import NoneType, to_primitive_function
+from .base import NoneType, to_primitive_function, register_primitive
 from .base import OperatorCall, Constant
 from .logic import Bool
 from .numerical import Int
@@ -63,7 +63,7 @@ def tuple_next(this: Tuple) -> Type[Object]:
 
 
 def tuple_to_string(this: Tuple):
-    return forward_declarations["String"](repr(this.elements))
+    return forward_declarations["string"](repr(this.elements))
 
 
 tuple_class = Class("tuple", {
@@ -156,7 +156,7 @@ def array_next(this: Array) -> Array:
 
 
 def array_to_string(this: Array):
-    return forward_declarations["String"](repr(this.elements))
+    return forward_declarations["string"](repr(this.elements))
 
 
 array_class = Class("array", {
@@ -174,9 +174,6 @@ array_class = Class("array", {
     "#next":            to_primitive_function(array_next),
     "#to_string":       to_primitive_function(array_to_string)
 }, {})
-
-
-forward_declarations["Array"] = Array
 
 
 class Dictionary(IPrimitiveType):
@@ -227,7 +224,7 @@ def dict_iter(this: Dictionary) -> Tuple:
 
 
 def dict_to_string(this: Dictionary):
-    return forward_declarations["String"](repr(this.elements))
+    return forward_declarations["string"](repr(this.elements))
 
 
 def dict_length(this: Dictionary):
@@ -238,7 +235,7 @@ def dict_to_bool(this: Dictionary) -> Bool:
     return Bool(bool(len(this.elements)))
 
 
-dictionary_class = Class("dictionary", {
+dictionary_class = Class("dict", {
     "#get_item":        to_primitive_function(dict_get_item),
     "#set_item":        to_primitive_function(dict_set_item),
     "#del_item":        to_primitive_function(dict_del_item),
@@ -250,3 +247,7 @@ dictionary_class = Class("dictionary", {
     "#iter":            to_primitive_function(dict_iter),
     "#to_string":       to_primitive_function(dict_to_string)
 }, {})
+
+register_primitive("tuple", Tuple, tuple_class)
+register_primitive("array", Array, array_class)
+register_primitive("dict", Dictionary, dictionary_class)

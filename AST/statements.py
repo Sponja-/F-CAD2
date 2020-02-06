@@ -20,7 +20,7 @@ class Return(IStatement):
         return result
 
 
-class ExprStatement(IComputable):
+class ExprStatement(IStatement):
     def __init__(self, expression: Type[IComputable]):
         self.expression = expression
 
@@ -28,7 +28,7 @@ class ExprStatement(IComputable):
         return self.expression.eval(scope_path)
 
 
-class StatementList(IComputable):
+class StatementList(IStatement):
     def __init__(self,
                  statements: Iterable[Type[IStatement]],
                  scoped: bool = True) -> None:

@@ -1,9 +1,9 @@
-from .base import IPrimitiveType, Class, to_primitive_function
+from .base import IPrimitiveType, Class, to_primitive_function, register_primitive
 from .numerical import Int
 
 
 class String(IPrimitiveType):
-    def __init__(self, value: str):
+    def __init__(self, value: str = None):
         self.value = value
         super().__init__(string_class)
 
@@ -37,3 +37,5 @@ string_class = Class("string", {
     "#del_item":        to_primitive_function(string_del_item),
     "#add_left":        to_primitive_function(string_combine)
 }, {})
+
+register_primitive("string", String, string_class)
