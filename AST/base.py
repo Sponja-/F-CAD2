@@ -19,16 +19,19 @@ class Object:
     def __repr__(self):
         return self.type.get_method("#to_string").eval({"this": self}).value
 
+    def call(self, name: str, scope_path: tuple = (), args: List[Type["Object"]] = []) -> Type["Object"]:
+        return MethodCall(Constant(self), name, [Constant(arg) for arg in args]).eval(())
+
 
 class IComputable(ABC):
     @abstractmethod
-    def eval(self, locals: Dict[str, Type[Object]]) -> Type[Object]:
+    def eval(self, scope_path: tuple) -> Type[Object]:
         pass
 
 
 class IAssignable(ABC):
     @abstractmethod
-    def set_value(self, value: Type[Object]) -> None:
+    def set_value(self, scope_path: tuple, value: Type[Object]) -> None:
         pass
 
 
@@ -36,25 +39,71 @@ class Constant(IComputable):
     def __init__(self, value: Type[Object]) -> None:
         self.value = value
 
-    def eval(self, locals: Dict[str, Type[Object]]) -> Type[Object]:
+    def eval(self, scope_path: tuple) -> Type[Object]:
         return self.value
 
 
+class Scope:
+    scope_n = 0
+
+    def __init__(self,
+                 elements: Dict[str, Type[Object]] = {}):
+        self.elements = elements
+
+    def __getitem__(self, path: tuple) -> Type[Object]:
+        if path[-1] in self.elements:
+            return self.elements[path[-1]]
+        if len(path) > 1:
+            return self.elements[path[0]][path[1:]]
+        raise f"Name {path[-1]} not found"
+
+    def __setitem__(self, path: tuple, value: Type[Object]) -> None:
+        if path[-1] in self.elements:
+            self.elements[path[-1]] = value
+        if len(path) > 1:
+            self.elements[path[0]][path[1:]] = value
+        else:
+            self.elements[path[0]] = value
+
+    def __delitem__(self, path: tuple) -> None:
+        if len(path) > 1:
+            del self.elements[path[0]][path[1:]]
+        else:
+            del self.elements[path[0]]
+
+    def new_scope(self, path: tuple, elements: Dict[str, Type[Object]] = {}) -> tuple:
+        if len(path > 1):
+            return (path[0],) + self.elements[path[0]].new_scope(path[1:], elements)
+        else:
+            result = Scope.scope_n
+            self.elements[path[0]] = Scope(elements)
+            return (path[0], result)
+
+
+class CreatePath:
+    def __init__(self, path: tuple, elements: Dict[str, Type[Object]]) -> None:
+        self.path = path
+        self.elements = elements
+
+    def __enter__(self):
+        self.new_path = Variable.table.new_scope(self.path, self.elements)
+        return self.new_path
+
+    def __exit__(self):
+        del Variable.table[self.new_path]
+
+
 class Variable(IComputable, IAssignable):
-    table: Dict[str, "Variable"] = {}
+    table = Scope()
 
     def __init__(self, name: str) -> None:
         self.name = name
 
-    def eval(self, locals: Dict[str, Type[Object]]) -> Type[Object]:
-        if self.name in locals:
-            return locals[self.name]
-        if self.name in Variable.table:
-            return Variable.table[self.name]
-        raise f"Name \"{self.name}\" not recognized"
+    def eval(self, scope_path: tuple) -> Type[Object]:
+        return Variable.table[scope_path]
 
-    def set_value(self, value: Object):
-        Variable.table[self.name] = value
+    def set_value(self, scope_path: tuple, value: Object):
+        Variable.table[scope_path] = value
 
 
 class FunctionCall(IComputable):  # Or FunctionCall
@@ -64,18 +113,21 @@ class FunctionCall(IComputable):  # Or FunctionCall
         self.function = function
         self.arguments = arguments
 
-    def eval(self, locals: Dict[str, Type[Object]]) -> Type[Object]:
-        f = self.function.eval(locals)
+    def eval(self, scope_path: tuple) -> Type[Object]:
+        f = self.function.eval(scope_path)
         assert(len(f.arg_names) <= len(self.arguments))
-        new_locals = {name: arg.eval(locals)
+
+        new_locals = {name: arg.eval(scope_path)
                       for name, arg in zip(f.arg_names, self.arguments)}
+
         if f.var_arg_name is not None:
-            new_locals[f.var_arg_name] = forward_declarations["Array"](
-                [arg.eval(locals) for arg in self.arguments[len(f.arg_names):]]
-            )
-        result = f.operation.eval(new_locals)
-        result.is_return = False
-        return result
+            new_locals[f.var_arg_name] = [arg.eval(scope_path)
+                                          for arg in self.arguments[len(f.arg_names):]]
+
+        with CreatePath(scope_path, new_locals) as new_path:
+            result = f.operation.eval(new_path)
+            result.is_return = False
+            return result
 
 
 class MethodCall(IComputable):
@@ -87,20 +139,24 @@ class MethodCall(IComputable):
         self.method_name = method_name
         self.arguments = arguments
 
-    def eval(self, locals: Dict[str, Type[Object]]) -> Type[Object]:
-        obj = self.object.eval(locals)
+    def eval(self, scope_path: tuple) -> Type[Object]:
+        obj = self.object.eval(scope_path)
         method = obj.type.get_method(self.method_name)
         assert(len(method.arg_names) <= len(self.arguments))
-        new_locals = {name: arg.eval(locals)
+
+        new_locals = {name: arg.eval(scope_path)
                       for name, arg in zip(method.arg_names, self.arguments)}
+
         if method.var_arg_name is not None:
-            new_locals[method.var_arg_name] = forward_declarations["Array"](
-                [arg.eval(locals) for arg in self.arguments[len(method.arg_names):]]
-            )
+            new_locals[method.var_arg_name] = [arg.eval(scope_path)
+                                               for arg in self.arguments[len(method.arg_names):]]
+
         new_locals["this"] = obj
-        result = method.operation.eval(new_locals)
-        result.is_return = False
-        return result
+
+        with CreatePath(scope_path, new_locals) as new_path:
+            result = method.operation.eval(new_path)
+            result.is_return = False
+            return result
 
 
 class MemberAccess(IComputable, IAssignable):
@@ -108,8 +164,8 @@ class MemberAccess(IComputable, IAssignable):
         self.object = object
         self.name = name
 
-    def eval(self, locals: Dict[str, Type[Object]]) -> Type[Object]:
-        obj = self.object.eval(locals)
+    def eval(self, scope_path: tuple) -> Type[Object]:
+        obj = self.object.eval(scope_path)
         if self.name in obj.attributes:
             return obj.attributes[self.name]
         elif self.name in obj.type.methods:
@@ -118,8 +174,8 @@ class MemberAccess(IComputable, IAssignable):
             return obj.type.static_attributes[self.name]
         raise f"Class {obj.type} has no attribute \"{self.name}\""
 
-    def set_value(self, value: Object) -> None:
-        self.object.eval(locals).attributes[self.name] = value
+    def set_value(self, scope_path, value: Object) -> None:
+        self.object.eval(scope_path).attributes[self.name] = value
 
 
 class IPrimitiveType(Object):
@@ -129,11 +185,11 @@ class IPrimitiveType(Object):
 
 class PrimitiveCall(IComputable):
     def __init__(self,
-                 function: Callable[[Dict[str, Type[Object]]], Type[Object]]) -> None:
+                 function: Callable[[tuple], Type[Object]]) -> None:
         self.function = function
 
-    def eval(self, locals: Dict[str, Type[Object]]) -> Type[Object]:
-        return self.function(locals)
+    def eval(self, scope_path: tuple) -> Type[Object]:
+        return self.function(scope_path)
 
 
 def to_primitive_function(func: Callable) -> "Function":
@@ -143,12 +199,12 @@ def to_primitive_function(func: Callable) -> "Function":
     var_arg_name = specs[1]
 
     @wraps(func)
-    def primitive_func(locals):
+    def primitive_func(scope_path: tuple):
         if var_arg_name is None:
-            return func(*[locals[name] for name in arg_names])
+            return func(*[Variable(name).eval(scope_path) for name in arg_names])
         else:
-            return func(*[locals[name] for name in arg_names],
-                        *locals[var_arg_name].elements)
+            return func(*[Variable(name).eval(scope_path) for name in arg_names],
+                        *Variable(var_arg_name).eval(scope_path).elements)
 
     return Function([name for name in arg_names if name != "this"],
                     PrimitiveCall(primitive_func),
@@ -218,7 +274,7 @@ def best_fitting_method(operator_name, obj, pos, length):
     if obj.type.has_method(operator_name + f"_{str(pos)}"):
         return (obj.type.get_method(operator_name + f"_{str(pos)}"), True)
     elif pos == 0 and length == 2 and obj.type.has_method(operator_name + "_left"):
-        return (obj.type.get_method(operator_name + "_left"))
+        return (obj.type.get_method(operator_name + "_left"), True)
     elif pos == 1 and length == 2 and obj.type.has_method(operator_name + "_right"):
         return (obj.type.get_method(operator_name + "_left"), True)
 
@@ -254,8 +310,8 @@ class OperatorCall(IComputable):
         self.name = name
         self.arguments = arguments
 
-    def eval(self, locals: Dict[str, Type[Object]]) -> Type[Object]:
-        objs: List[Object] = [arg.eval(locals) for arg in self.arguments]
+    def eval(self, scope_path: tuple) -> Type[Object]:
+        objs: List[Object] = [arg.eval(scope_path) for arg in self.arguments]
 
         method, owner, position = resolve_overload(self.name, objs)
 
@@ -268,14 +324,14 @@ class OperatorCall(IComputable):
         new_locals = {name: obj for name, obj in zip(method.arg_names, objs)}
 
         if method.var_arg_name is not None:
-            new_locals[method.var_arg_name] = forward_declarations["Array"](objs[len(method.arg_names) - 1:])
+            new_locals[method.var_arg_name] = forward_declarations["Tuple"](objs[len(method.arg_names) - 1:])
 
         new_locals["this"] = owner
 
-        result = method.operation.eval(new_locals)
-        result.is_return = False
-
-        return result
+        with CreatePath(scope_path, new_locals) as new_path:
+            result = method.operation.eval(new_path)
+            result.is_return = False
+            return result
 
 
 none_class = Class("none", {}, {})
@@ -291,8 +347,19 @@ none_object = NoneType()
 
 def unpack(obj: Type[Object]) -> List[Type[Object]]:
     result = []
-    iterator = obj.type.get_method("#iter").operation.eval({"this": obj})
-    value = iterator.type.get_method("#next").operation.eval({"this": iterator})
+    iterator = obj.call("#iter")
+    value = iterator.call("#next")
     while type(value) is not forward_declarations["StopIteration"]:
         result.append(value)
-        value = iterator.type.get_method("#next").operation.eval({"this": iterator})
+        value = iterator.call("#next")
+
+
+class Assignment(IComputable):
+    def __init__(self, object: Type[IComputable], value: Type[IComputable]) -> None:
+        self.object = object
+        self.value = value
+
+    def eval(self, scope_path: tuple) -> Type[Object]:
+        value = self.value.eval(scope_path)
+        self.object.eval(scope_path).set_value(value)
+        return value

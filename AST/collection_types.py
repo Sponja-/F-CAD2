@@ -1,5 +1,5 @@
 from .base import Class, IPrimitiveType, Object, forward_declarations
-from .base import NoneType, none_object, to_primitive_function
+from .base import NoneType, to_primitive_function
 from .base import OperatorCall, Constant
 from .logic import Bool
 from .numerical import Int
@@ -30,7 +30,7 @@ def tuple_length(this: Tuple) -> Int:
 def tuple_equal(this: Tuple, other: Tuple) -> Bool:
     if len(this.elements) != len(other.elements):
         return Bool(False)
-    return Bool(all(OperatorCall("#equal", [Constant(elem1), Constant(elem2)]).eval({}).value
+    return Bool(all(OperatorCall("#equal", [Constant(elem1), Constant(elem2)]).eval(()).value
                 for elem1, elem2 in zip(this.elements, other.elements)))
 
 
@@ -44,7 +44,7 @@ def tuple_to_bool(this: Tuple) -> Bool:
 
 def tuple_contains(this: Tuple, value: Type[Object]) -> Bool:
     const_value = Constant(value)
-    return Bool(any(OperatorCall("#equal", [Constant(elem), const_value]).eval({}).value
+    return Bool(any(OperatorCall("#equal", [Constant(elem), const_value]).eval(()).value
                     for elem in this.elements))
 
 
@@ -59,7 +59,7 @@ def tuple_next(this: Tuple) -> Type[Object]:
         this.iter_current += 1
         return result
     else:
-        return Raise(Constant(StopIteration)).eval({})
+        return Raise(Constant(StopIteration)).eval(())
 
 
 def tuple_to_string(this: Tuple):
@@ -127,7 +127,7 @@ def array_insert(this: Array, index: Int, value: Type[Object]) -> NoneType:
 def array_equal(this: Array, other: Array) -> Bool:  # TODO
     if len(this.elements) != len(other.elements):
         return Bool(False)
-    return Bool(all(OperatorCall("#equal", [Constant(elem1), Constant(elem2)]).eval({}).value
+    return Bool(all(OperatorCall("#equal", [Constant(elem1), Constant(elem2)]).eval(()).value
                 for elem1, elem2 in zip(this.elements, other.elements)))
 
 
@@ -137,7 +137,7 @@ def array_to_bool(this: Array) -> Bool:
 
 def array_contains(this: Array, value: Type[Object]) -> Bool:
     const_value = Constant(value)
-    return Bool(any(OperatorCall("#equal", [Constant(elem), const_value]).eval({}).value
+    return Bool(any(OperatorCall("#equal", [Constant(elem), const_value]).eval(()).value
                     for elem in this.elements))
 
 
@@ -152,7 +152,7 @@ def array_next(this: Array) -> Array:
         this.iter_current += 1
         return result
     else:
-        return Raise(Constant(StopIteration)).eval({})
+        return Raise(Constant(StopIteration)).eval(())
 
 
 def array_to_string(this: Array):
@@ -222,8 +222,8 @@ def dict_items(this: Dictionary) -> Tuple:
 
 
 def dict_iter(this: Dictionary) -> Tuple:
-    keys = this.type.get_method("keys").eval({"this": this})
-    return keys.type.get_method("#iter").eval({"this": keys})
+    keys = this.call("keys")
+    return keys.call("#iter")
 
 
 def dict_to_string(this: Dictionary):

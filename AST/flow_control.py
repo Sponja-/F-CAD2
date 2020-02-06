@@ -1,8 +1,8 @@
 from .base import IComputable, Object, none_object
-from .base import forward_declarations, unpack
+from .base import forward_declarations, unpack, Variable
 from .statements import IStatement, StatementList
 from .logic import try_bool
-from typing import Dict, Type, Optional, List
+from typing import Type, Optional, List
 
 
 class IfElseStatement(IStatement):
@@ -13,11 +13,11 @@ class IfElseStatement(IStatement):
         self.condition = condition
         self.if_body = if_body
 
-    def eval(self, locals: Dict[str, Type[Object]]) -> Type[Object]:
-        if try_bool(self.condition.eval(locals)).value:
-            return self.if_body.eval(locals)
+    def eval(self, scope_path: tuple) -> Type[Object]:
+        if try_bool(self.condition.eval(scope_path)).value:
+            return self.if_body.eval(scope_path)
         elif self.else_body is not None:
-            return self.else_body.eval(locals)
+            return self.else_body.eval(scope_path)
 
 
 class BreakMarker:
@@ -26,7 +26,7 @@ class BreakMarker:
 
 
 class BreakStatement(IStatement):  # Needs to be returned
-    def eval(self, locals: Dict[str, Type[Object]]) -> BreakMarker:
+    def eval(self, scope_path: tuple) -> BreakMarker:
         return BreakMarker()
 
 
@@ -36,7 +36,7 @@ class ContinueMarker:
 
 
 class ContinueStatement(IStatement):
-    def eval(self, locals: Dict[str, Type[Object]]) -> ContinueMarker:
+    def eval(self, scope_path: tuple) -> ContinueMarker:
         return ContinueMarker()
 
 
@@ -47,9 +47,9 @@ class WhileStatement(IStatement):
         self.condition = condition
         self.body = body
 
-    def eval(self, locals: Dict[str, Type[Object]]) -> Type[Object]:
-        while try_bool(self.condition.eval(locals)).value:
-            result = self.body.eval(locals)
+    def eval(self, scope_path: tuple) -> Type[Object]:
+        while try_bool(self.condition.eval(scope_path)).value:
+            result = self.body.eval(scope_path)
             if type(result) is BreakMarker:
                 break
             if type(result) is ContinueMarker:
@@ -68,23 +68,22 @@ class ForStatement(IStatement):
         self.iter_vars = iter_vars
         self.body = body
 
-    def eval(self, locals: Dict[str, Type[Object]]) -> Type[Object]:
-        obj = self.iterable.eval(locals)
-        iterator = obj.type.get_method("#iter").operation.eval({"this": obj})
-        value = iterator.type.get_method("#next").operation.eval({"this": iterator})
+    def eval(self, scope_path: tuple) -> Type[Object]:
+        obj = self.iterable.eval(scope_path)
+        iterator = obj.call("#iter")
+        value = iterator.call("#next")
         while type(value) is not forward_declarations["StopIteration"]:
             vars = [value]
             if len(self.iter_vars) > 1:
                 vars = unpack(value)
-            add_locals = {}
             for name, var in zip(self.iter_vars, vars):
-                add_locals[name] = var
-            result = self.body.eval({**locals, **add_locals})
+                Variable(name).set_value(scope_path, var)
+            result = self.body.eval(scope_path)
             if type(result) is BreakMarker:
                 break
             if type(result) is ContinueMarker:
                 continue
             if result.is_return or result.is_except:
                 return result
-            value = iterator.type.get_method("#next").operation.eval({"this": iterator})
+            value = iterator.call("#next")
         return none_object

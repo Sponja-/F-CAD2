@@ -1,10 +1,10 @@
-from .base import IComputable, Object, none_object, Variable
-from typing import Type, Dict, Iterable
+from .base import IComputable, Object, none_object
+from typing import Type, Iterable
 
 
 class IStatement(IComputable):
-    def exec(self, locals: Dict[str, Type[Object]]):
-        result = self.eval(locals)
+    def exec(self, scope_path: tuple):
+        result = self.eval(scope_path)
         if result.is_return or result.is_except:
             return result
         return None
@@ -14,29 +14,18 @@ class Return(IStatement):
     def __init__(self, value: Type[IComputable]):
         self.value = value
 
-    def eval(self, locals: Dict[str, Type[Object]]) -> Type[Object]:
-        result = self.value.eval(locals)
+    def eval(self, scope_path: tuple) -> Type[Object]:
+        result = self.value.eval(scope_path)
         result.is_return = True
         return result
-
-
-class Assignment(IStatement):
-    def __init__(self, object: Type[IComputable], value: Type[IComputable]) -> None:
-        self.object = object
-        self.value = value
-
-    def eval(self, locals: Dict[str, Type[Object]]) -> Type[Object]:
-        value = self.value.eval(locals)
-        self.object.eval(locals).set_value(value)
-        return value
 
 
 class ExprStatement(IComputable):
     def __init__(self, expression: Type[IComputable]):
         self.expression = expression
 
-    def eval(self, locals: Dict[str, Type[Object]]) -> Type[Object]:
-        return self.expression.eval(locals)
+    def eval(self, scope_path: tuple) -> Type[Object]:
+        return self.expression.eval(scope_path)
 
 
 class StatementList(IComputable):
@@ -46,21 +35,11 @@ class StatementList(IComputable):
         self.statements = statements
         self.scoped = scoped
 
-    def eval(self, locals: Dict[str, Type[Object]]) -> Type[Object]:
-        old_globals: Dict[str, Object] = {}
+    def eval(self, scope_path: tuple) -> Type[Object]:
         ret_val = none_object
         for statement in self.statements:
-            if (isinstance(statement, Assignment) and
-               isinstance(statement.object, Variable)):
-                name = statement.expression.object.name
-                old_globals[name] = Variable.table.get(name, None)
-            result = statement.exec(locals)
+            result = statement.exec(scope_path)
             if result is not None:
                 ret_val = result
                 break
-        for name, value in old_globals.items():
-            if value is not None:
-                Variable.table[name] = value
-            else:
-                del Variable.table[name]
         return ret_val

@@ -72,7 +72,8 @@ class TokenizerTests(unittest.TestCase):
 
 
 class BaseTests(unittest.TestCase):
-    pass
+    def instance_test(self):
+        a = 
 
 
 if __name__ == "__main__":

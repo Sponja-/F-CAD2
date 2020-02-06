@@ -1,6 +1,6 @@
 from .base import Class, IPrimitiveType, forward_declarations, Object
 from .base import IComputable, to_primitive_function
-from typing import Dict, Type
+from typing import Type
 
 
 class Bool(IPrimitiveType):
@@ -13,7 +13,7 @@ def try_bool(obj: Type[Object]):
     if type(obj) is Bool:
         return obj
     if obj.type.has_method("#to_bool"):
-        return obj.type.get_method("#to_bool").operation.eval({"this": obj})
+        return obj.call("#to_bool")
     raise f"Could not convert {obj} to bool"
 
 
@@ -22,12 +22,12 @@ class AndOperation(IComputable):
         self.left = left
         self.right = right
 
-    def eval(self, locals: Dict[str, Type[Object]]) -> Type[Object]:
-        left_obj = self.left.eval(locals)
+    def eval(self, scope_path: tuple) -> Type[Object]:
+        left_obj = self.left.eval(scope_path)
         left_bool = try_bool(left_obj)
         if not left_bool.value:
             return left_obj
-        return self.right.eval(locals)
+        return self.right.eval(scope_path)
 
 
 class OrOperation(IComputable):
@@ -35,20 +35,20 @@ class OrOperation(IComputable):
         self.left = left
         self.right = right
 
-    def eval(self, locals: Dict[str, Type[Object]]) -> Type[Object]:
-        left_obj = self.left.eval(locals)
+    def eval(self, scope_path: tuple) -> Type[Object]:
+        left_obj = self.left.eval(scope_path)
         left_bool = try_bool(left_obj)
         if left_bool.value:
             return left_obj
-        return self.right.eval(locals)
+        return self.right.eval(scope_path)
 
 
 class NotOperation(IComputable):
     def __init__(self, value: IComputable) -> None:
         self.value = value
 
-    def eval(self, locals: Dict[str, Type[Object]]) -> Type[Object]:
-        obj = self.value.eval(locals)
+    def eval(self, scope_path: tuple) -> Type[Object]:
+        obj = self.value.eval(scope_path)
         return Bool(not try_bool(obj).value)
 
 
