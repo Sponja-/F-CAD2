@@ -1,5 +1,5 @@
 from .base import IComputable, Object, none_object
-from .base import forward_declarations, unpack, Variable
+from .base import unpack, Variable
 from .statements import IStatement, StatementList
 from .logic import try_bool
 from typing import Type, Optional, List
@@ -61,18 +61,15 @@ class WhileStatement(IStatement):
 
 class ForStatement(IStatement):
     def __init__(self,
-                 iterable: IComputable,
                  iter_vars: List[str],
+                 iterable: IComputable,
                  body: StatementList):
-        self.iterable = iterable
         self.iter_vars = iter_vars
+        self.iterable = iterable
         self.body = body
 
     def eval(self, scope_path: tuple) -> Type[Object]:
-        obj = self.iterable.eval(scope_path)
-        iterator = obj.call("#iter")
-        value = iterator.call("#next")
-        while type(value) is not forward_declarations["StopIteration"]:
+        for value in self.iterable.eval(scope_path):
             vars = [value]
             if len(self.iter_vars) > 1:
                 vars = unpack(value)
@@ -85,5 +82,4 @@ class ForStatement(IStatement):
                 continue
             if result.is_return or result.is_except:
                 return result
-            value = iterator.call("#next")
         return none_object

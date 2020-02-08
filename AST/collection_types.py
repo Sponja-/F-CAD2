@@ -1,4 +1,4 @@
-from .base import Class, IPrimitiveType, Object, forward_declarations
+from .base import Class, IPrimitiveType, Object, forward_declarations, none_object
 from .base import NoneType, to_primitive_function, register_primitive
 from .base import OperatorCall, Constant
 from .logic import Bool
@@ -12,6 +12,14 @@ class Tuple(IPrimitiveType):
         self.elements = elements
         self.iter_current = 0
         super().__init__(tuple_class)
+
+
+def tuple_constructor(this: Tuple, arg: Type[Object]):
+    if arg.type.name in ("array", "tuple"):
+        this.elements = tuple(arg.elements)
+    elif "#iter" in arg.attributes:
+        this.elements = tuple(arg)
+    return none_object
 
 
 def tuple_get_item(this: Tuple, index: Int) -> Type[Object]:
@@ -66,7 +74,12 @@ def tuple_to_string(this: Tuple):
     return forward_declarations["string"](repr(this.elements))
 
 
+def static_tuple_call(this: Class, arg: Type[Object]) -> Tuple:
+    return Tuple(tuple(arg))
+
+
 tuple_class = Class("tuple", {
+    "constructor":      to_primitive_function(tuple_constructor),
     "#get_item":        to_primitive_function(tuple_get_item),
     "#add_left":        to_primitive_function(tuple_combine),
     "length":           to_primitive_function(tuple_length),
@@ -77,7 +90,9 @@ tuple_class = Class("tuple", {
     "#iter":            to_primitive_function(tuple_iter),
     "#next":            to_primitive_function(tuple_next),
     "#to_string":       to_primitive_function(tuple_to_string)
-}, {})
+}, {
+    "#call":            to_primitive_function(static_tuple_call)
+})
 
 
 class Array(IPrimitiveType):
@@ -85,6 +100,14 @@ class Array(IPrimitiveType):
         self.elements = elements
         self.iter_current = 0
         super().__init__(array_class)
+
+
+def array_constructor(this: Array, arg: Type[Object]):
+    if arg.type.name in ("array", "tuple"):
+        this.elements = list(arg.elements)
+    elif "#iter" in arg.attributes:
+        this.elements = list(arg)
+    return none_object
 
 
 def array_get_item(this: Array, index: Int) -> Object:
@@ -159,7 +182,12 @@ def array_to_string(this: Array):
     return forward_declarations["string"](repr(this.elements))
 
 
+def static_array_call(this: Class, arg: Type[Object]) -> Array:
+    return Array(list(arg))
+
+
 array_class = Class("array", {
+    "constructor":      to_primitive_function(array_constructor),
     "#get_item":        to_primitive_function(array_get_item),
     "#set_item":        to_primitive_function(array_set_item),
     "#del_item":        to_primitive_function(array_del_item),
@@ -173,13 +201,30 @@ array_class = Class("array", {
     "#iter":            to_primitive_function(array_iter),
     "#next":            to_primitive_function(array_next),
     "#to_string":       to_primitive_function(array_to_string)
-}, {})
+}, {
+    "#call":            to_primitive_function(static_array_call)
+})
 
 
 class Dictionary(IPrimitiveType):
-    def __init__(self, values: Dict[Type[Object], Type[Object]]):
-        self.elements = values
+    def __init__(self, elements: Dict[Type[Object], Type[Object]]):
+        self.elements = elements
         super().__init__(dictionary_class)
+
+
+def dict_constructor(this: Dictionary, arg: Type[Object]) -> None:
+    if arg.type.name == "dictionary":
+        this.elements = arg.elements
+    elif "#iter" in arg.attributes:
+        result = {}
+        for value in arg:
+            pair = []
+            for x in value:
+                pair.append(x)
+            assert(len(pair) == 2)
+            result[pair[0]] = pair[1]
+        this.elements = result
+    return none_object
 
 
 def dict_get_item(this: Dictionary, index: Type[Object]) -> Type[Object]:
@@ -235,7 +280,19 @@ def dict_to_bool(this: Dictionary) -> Bool:
     return Bool(bool(len(this.elements)))
 
 
+def static_dict_call(this: Class, arg: Type[Object]) -> Object:
+    result = {}
+    for value in arg:
+        pair = []
+        for x in value:
+            pair.append(x)
+        assert(len(pair) == 2)
+        result[pair[0]] = pair[1]
+    return result
+
+
 dictionary_class = Class("dict", {
+    "constructor":      to_primitive_function(dict_constructor),
     "#get_item":        to_primitive_function(dict_get_item),
     "#set_item":        to_primitive_function(dict_set_item),
     "#del_item":        to_primitive_function(dict_del_item),
@@ -246,7 +303,9 @@ dictionary_class = Class("dict", {
     "items":            to_primitive_function(dict_items),
     "#iter":            to_primitive_function(dict_iter),
     "#to_string":       to_primitive_function(dict_to_string)
-}, {})
+}, {
+    "#call":            to_primitive_function(static_dict_call)
+})
 
 register_primitive("tuple", Tuple, tuple_class)
 register_primitive("array", Array, array_class)

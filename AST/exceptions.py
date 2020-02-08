@@ -43,12 +43,12 @@ class StopIteration(IPrimitiveType):
         super().__init__(StopIteration_class)
 
 
-def StopIteration_new(this):
+def StopIteration_constructor(this):
     pass
 
 
 StopIteration_class = Class("StopIteration", {
-    "#new":     to_primitive_function(StopIteration_new)
+    "constructor":     to_primitive_function(StopIteration_constructor)
 }, {})
 
 

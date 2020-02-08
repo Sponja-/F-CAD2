@@ -1,5 +1,5 @@
 from .base import Class, forward_declarations, register_primitive
-from .base import to_primitive_function, IPrimitiveType
+from .base import to_primitive_function, IPrimitiveType, Object, none_object
 from .logic import Bool
 from typing import Union, Callable, Type
 from functools import wraps
@@ -47,6 +47,24 @@ def numerical_to_string(this: Type[Numerical]):
     return forward_declarations["string"](str(this.value))
 
 
+def int_constructor(this: Int, arg: Type[Object]) -> Type[Object]:
+    this.value = int(arg.call("#to_int").value)
+    return none_object
+
+
+def float_constructor(this: Int, arg: Type[Object]) -> Type[Object]:
+    this.value = float(arg.call("#to_float").value)
+    return none_object
+
+
+def static_int_call(this: Class, arg: Type[Object]) -> Int:
+    return arg.call("#to_int")
+
+
+def static_float_call(this: Class, arg: Type[Object]) -> Float:
+    return arg.call("#to_float")
+
+
 numerical_methods = {
     "#add":                 (lambda x, y: x + y),
     "#substract_left":      (lambda x, y: x - y),
@@ -73,7 +91,10 @@ numerical_methods = {
 
 int_class = Class("int",
                   {name: to_primitive_function(numerical_compatible(method))
-                   for name, method in numerical_methods.items()}, {})
+                   for name, method in numerical_methods.items()}, {
+                        "#call":        to_primitive_function(static_int_call)
+                   })
+int_class.methods["constructor"] = to_primitive_function(int_constructor)
 int_class.methods["#to_bool"] = to_primitive_function(numerical_to_bool)
 int_class.methods["#hash"] = to_primitive_function(numerical_hash)
 int_class.methods["#to_string"] = to_primitive_function(numerical_to_string)
@@ -81,6 +102,7 @@ int_class.methods["#to_string"] = to_primitive_function(numerical_to_string)
 float_class = Class("float",
                     {name: to_primitive_function(numerical_compatible(method))
                      for name, method in numerical_methods.items()}, {})
+float_class.methods["constructor"] = to_primitive_function(float_constructor)
 float_class.methods["#to_bool"] = to_primitive_function(numerical_to_bool)
 float_class.methods["#hash"] = to_primitive_function(numerical_hash)
 float_class.methods["#to_string"] = to_primitive_function(numerical_to_string)
