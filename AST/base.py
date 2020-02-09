@@ -59,7 +59,7 @@ class Constant(IComputable):
         return self.value
 
 
-class Scope:  # FIX
+class Scope:
     scope_n = 0
 
     def __init__(self,
@@ -96,7 +96,7 @@ class Scope:  # FIX
             return (path[0], result)
 
 
-class CreatePath:
+class CreateScope:
     def __init__(self, path: tuple, elements: Dict[str, Type[Object]]) -> None:
         self.path = path
         self.elements = elements
@@ -169,6 +169,7 @@ def to_primitive_function(func: Callable) -> "Function":
                         *Variable(var_arg_name).eval(scope_path).elements)
 
     return Function(PrimitiveCall(primitive_func),
+                    (),
                     [name for name in arg_names if name != "this"],
                     var_arg_name)
 
@@ -208,7 +209,7 @@ def class_constructor(this: Class, name, methods, statics, parent):
     assert(name.type.name == "string")
     assert(methods.type.name == "dictionary")
     assert(statics.type.name == "dictionary")
-    assert(parent.type.name == "parent")
+    assert(parent.type.name == "class")
     this.name = name.value
     this.methods = {name.value: elem for name, elem in methods.elements}
     this.parent = parent if parent.type.name != "none" else None
@@ -236,7 +237,7 @@ class ConstructorCall(IComputable):
 
             new_locals = create_locals(constructor, [arg.eval(scope_path) for arg in self.arguments])
 
-            with CreatePath(scope_path, new_locals) as new_path:
+            with CreateScope(constructor.parent_scope, new_locals) as new_path:
                 constructor.operation.eval(new_path)
                 new_obj.is_return = False
 
@@ -245,22 +246,24 @@ class ConstructorCall(IComputable):
 
 class Function(IPrimitiveType):
     def __init__(self,
-                 arg_names: Iterable[str],
                  operation: Type[IComputable],
-                 bound_object: Optional[Type[Object]] = None,
-                 var_arg_name: Optional[str] = None) -> None:
-        self.arg_names = arg_names
+                 parent_scope: tuple,
+                 arg_names: Iterable[str],
+                 var_arg_name: Optional[str] = None,
+                 **kwargs) -> None:
         self.operation = operation
+        self.parent_scope = parent_scope
+        self.arg_names = arg_names
         self.var_arg_name = var_arg_name
-        self.bound_object = bound_object
+        self.bound_object = None
         super().__init__(function_class)
 
 
 def function_copy(this: Function):
     return Function(this.operation,
+                    this.parent_scope,
                     this.arg_names,
-                    this.var_arg_name,
-                    this.bound_object)
+                    this.var_arg_name)
 
 
 def function_call(this: Function, args: List[Object]):
@@ -271,6 +274,22 @@ function_class = Class("function", {
     "#copy":        to_primitive_function(function_copy),
     "#call":        to_primitive_function(function_call)
 })
+
+
+class FunctionCreate(IComputable):
+    def __init__(self,
+                 operation: Type[IComputable],
+                 arg_names: Iterable[str],
+                 var_arg_name: Optional[str] = None):
+        self.operation = operation
+        self.arg_names = arg_names
+        self.var_arg_name = var_arg_name
+
+    def eval(self, scope_path: tuple) -> Function:
+        return Function(self.operation,
+                        scope_path,
+                        self.arg_names,
+                        self.var_arg_name)
 
 
 def create_locals(func, args):
@@ -294,8 +313,7 @@ class FunctionCall(IComputable):
         assert(len(f.arg_names) <= len(self.arguments))
 
         new_locals = create_locals(f, [arg.eval(scope_path) for arg in self.arguments])
-
-        with CreatePath(scope_path, new_locals) as new_path:
+        with CreateScope(f.parent_scope, new_locals) as new_path:
             result = f.operation.eval(new_path)
             result.is_return = False
             return result
@@ -352,7 +370,7 @@ class OperatorCall(IComputable):
 
         new_locals = create_locals(method, objs)
 
-        with CreatePath(scope_path, new_locals) as new_path:
+        with CreateScope(method.parent_scope, new_locals) as new_path:
             result = method.operation.eval(new_path)
             result.is_return = False
             return result
