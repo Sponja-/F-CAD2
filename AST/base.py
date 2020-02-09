@@ -4,23 +4,24 @@ from inspect import getfullargspec
 from functools import wraps
 
 forward_declarations = {}
+class_class_created = False
 
 
 class Object:
     def __init__(self, type: "Class") -> None:
         self.type = type
-        self.attributes: Dict[str, "Type[Object]"] = {get_bound_function(f, self) for f in self.type.object_methods()}
+        self.attributes = {name: get_bound_function(method, self) for name, method in self.type.object_methods().items()}
         self.is_return = False
         self.is_except = False
 
     def call(self, name: str, scope_path: tuple = (), args: List[Type["Object"]] = []) -> Type["Object"]:
-        return FunctionCall(self.attributes[name], [Constant(arg) for arg in args]).eval(())
+        return FunctionCall(Constant(self.attributes[name]), [Constant(arg) for arg in args]).eval(scope_path)
 
     def __hash__(self):
-        return self.call("#hash")
+        return self.call("#hash").value
 
     def __repr__(self):
-        return self.call("#to_string")
+        return self.call("#to_string").value
 
     def __iter__(self):
         return self.call("#iter")
@@ -34,9 +35,11 @@ class Object:
 
 
 def get_bound_function(f, obj):
-    bound_f = f.call("#copy")
-    bound_f.bound_object = obj
-    return bound_f
+    return Function(f.operation,
+                    f.parent_scope,
+                    f.arg_names,
+                    f.var_arg_name,
+                    bound_object=obj)
 
 
 class IComputable(ABC):
@@ -64,20 +67,26 @@ class Scope:
 
     def __init__(self,
                  elements: Dict[str, Type[Object]] = {}):
-        self.elements = elements
+        self.elements = dict(elements)
 
     def __getitem__(self, path: tuple) -> Type[Object]:
         if len(path) > 1:
             return self.elements[path[0]][path[1:]] or self.elements.get(path[-1], None)
-        return self.elements.get(path[0], None)
+        result = self.elements.get(path[0], None)
+        if type(result) is str and result == "global":
+            return Variable.table[path]
+        else:
+            return result
 
     def __setitem__(self, path: tuple, value: Type[Object]) -> None:
-        if path[-1] in self.elements:
-            self.elements[path[-1]] = value
         if len(path) > 1:
             self.elements[path[0]][path[1:]] = value
         else:
-            self.elements[path[0]] = value
+            result = self.elements.get(path[0], None)
+            if type(result) is str and result == "global":
+                Variable.table[path] = value
+            else:
+                self.elements[path[0]] = value
 
     def __delitem__(self, path: tuple) -> None:
         if len(path) > 1:
@@ -88,12 +97,13 @@ class Scope:
     def new_scope(self,
                   path: tuple,
                   elements: Dict[str, Type[Object]] = {}) -> tuple:
-        if len(path > 1):
+        if len(path) > 0:
             return (path[0],) + self.elements[path[0]].new_scope(path[1:], elements)
         else:
             result = Scope.scope_n
-            self.elements[path[0]] = Scope(elements)
-            return (path[0], result)
+            Scope.scope_n += 1
+            self.elements[result] = Scope(elements)
+            return (result,)
 
 
 class CreateScope:
@@ -105,7 +115,7 @@ class CreateScope:
         self.new_path = Variable.table.new_scope(self.path, self.elements)
         return self.new_path
 
-    def __exit__(self):
+    def __exit__(self, type, value, traceback):
         del Variable.table[self.new_path]
 
 
@@ -125,19 +135,24 @@ class Variable(IComputable, IAssignable):
         Variable.table[scope_path + (self.name,)] = value
 
 
-class MemberAccess(IComputable, IAssignable):
-    def __init__(self, object: Type[IComputable], name: str) -> None:
+class Assignment(IComputable):
+    def __init__(self, object: Type[IComputable], value: Type[IComputable]) -> None:
         self.object = object
+        self.value = value
+
+    def eval(self, scope_path: tuple) -> Type[Object]:
+        value = self.value.eval(scope_path)
+        self.object.set_value(scope_path, value)
+        return value
+
+
+class GlobalDeclare(IComputable):
+    def __init__(self, name):
         self.name = name
 
     def eval(self, scope_path: tuple) -> Type[Object]:
-        obj = self.object.eval(scope_path)
-        if self.name in obj.attributes:
-            return obj.attributes[self.name]
-        raise f"Object {obj.type} has no attribute \"{self.name}\""
-
-    def set_value(self, scope_path, value: Object) -> None:
-        self.object.eval(scope_path).attributes[self.name] = value
+        Variable(self.name).set_value(scope_path, "global")
+        return none_object
 
 
 class IPrimitiveType(Object):
@@ -176,15 +191,16 @@ def to_primitive_function(func: Callable) -> "Function":
 
 class Class(IPrimitiveType):
     def __init__(self,
-                 name: str,
-                 methods: Dict[str, "Function"],
+                 name: str = "",
+                 methods: Dict[str, "Function"] = {},
                  statics: Dict[str, Type[Object]] = {},
                  parent: Optional["Class"] = None) -> None:
         self.name = name
         self.methods = methods
         self.parent = parent
-        super().__init__(class_class)
-        self.attributes.update(statics)
+        if self.name != "class":
+            super().__init__(class_class)
+            self.attributes.update(statics)
 
     def object_methods(self):
         methods = {}
@@ -207,18 +223,13 @@ class Class(IPrimitiveType):
 
 def class_constructor(this: Class, name, methods, statics, parent):
     assert(name.type.name == "string")
-    assert(methods.type.name == "dictionary")
-    assert(statics.type.name == "dictionary")
+    assert(methods.type.name == "dict")
+    assert(statics.type.name == "dict")
     assert(parent.type.name == "class")
     this.name = name.value
-    this.methods = {name.value: elem for name, elem in methods.elements}
-    this.parent = parent if parent.type.name != "none" else None
-    this.attributes.update({name.value: elem for name, elem in statics.elements})
-
-
-class_class = Class("class", {
-    "constructor":         to_primitive_function(class_constructor)
-})
+    this.methods = {name.value: elem for name, elem in methods.elements.items()}
+    this.parent = parent if parent.name != "NoneType" else None
+    this.attributes.update({name.value: elem for name, elem in statics.elements.items()})
 
 
 class ConstructorCall(IComputable):
@@ -227,12 +238,13 @@ class ConstructorCall(IComputable):
         self.arguments = arguments
 
     def eval(self, scope_path: tuple) -> Type[Object]:
-        if self.type.name in forward_declarations:
-            new_obj = forward_declarations[self.type.name]()
+        t = self.type.eval(scope_path)
+        if t.name in forward_declarations:
+            new_obj = forward_declarations[t.name]()
         else:
-            new_obj = Object(type)
+            new_obj = Object(t)
 
-        if "constructor" in new_obj:
+        if "constructor" in new_obj.attributes:
             constructor = new_obj.attributes["constructor"]
 
             new_locals = create_locals(constructor, [arg.eval(scope_path) for arg in self.arguments])
@@ -242,6 +254,21 @@ class ConstructorCall(IComputable):
                 new_obj.is_return = False
 
         return new_obj
+
+
+class MemberAccess(IComputable, IAssignable):
+    def __init__(self, object: Type[IComputable], name: str) -> None:
+        self.object = object
+        self.name = name
+
+    def eval(self, scope_path: tuple) -> Type[Object]:
+        obj = self.object.eval(scope_path)
+        if self.name in obj.attributes:
+            return obj.attributes[self.name]
+        raise f"Object {obj.type} has no attribute \"{self.name}\""
+
+    def set_value(self, scope_path, value: Object) -> None:
+        self.object.eval(scope_path).attributes[self.name] = value
 
 
 class Function(IPrimitiveType):
@@ -255,7 +282,7 @@ class Function(IPrimitiveType):
         self.parent_scope = parent_scope
         self.arg_names = arg_names
         self.var_arg_name = var_arg_name
-        self.bound_object = None
+        self.bound_object = kwargs.get("bound_object", None)
         super().__init__(function_class)
 
 
@@ -268,12 +295,6 @@ def function_copy(this: Function):
 
 def function_call(this: Function, args: List[Object]):
     return FunctionCall(this, [Constant(arg) for arg in args]).eval(())
-
-
-function_class = Class("function", {
-    "#copy":        to_primitive_function(function_copy),
-    "#call":        to_primitive_function(function_call)
-})
 
 
 class FunctionCreate(IComputable):
@@ -310,6 +331,8 @@ class FunctionCall(IComputable):
 
     def eval(self, scope_path: tuple) -> Type[Object]:
         f = self.function.eval(scope_path)
+        if type(f) is not Function:
+            f = f.attributes["#call"]
         assert(len(f.arg_names) <= len(self.arguments))
 
         new_locals = create_locals(f, [arg.eval(scope_path) for arg in self.arguments])
@@ -397,23 +420,8 @@ def none_to_float(this):
     return forward_declarations["float"](0.0)
 
 
-none_class = Class("none", {})
-none_object = NoneType()
-
-
 def unpack(obj: Type[Object]) -> List[Type[Object]]:
     return list(obj)
-
-
-class Assignment(IComputable):
-    def __init__(self, object: Type[IComputable], value: Type[IComputable]) -> None:
-        self.object = object
-        self.value = value
-
-    def eval(self, scope_path: tuple) -> Type[Object]:
-        value = self.value.eval(scope_path)
-        self.object.eval(scope_path).set_value(value)
-        return value
 
 
 def register_primitive(name: str, cls, type: Class) -> None:
@@ -421,6 +429,20 @@ def register_primitive(name: str, cls, type: Class) -> None:
     forward_declarations[name] = cls
 
 
+class_class = Class("class", {})
+function_class = Class("function", {})
+
+
+class_class.methods["constructor"] = to_primitive_function(class_constructor)
+Object.__init__(class_class, class_class)
+
+
+none_class = Class("NoneType", {})
+none_object = NoneType()
+
+
 register_primitive("class", Class, class_class)
 register_primitive("function", Function, function_class)
 register_primitive("NoneType", NoneType, none_class)
+
+Assignment(Variable("none"), Constant(none_object)).eval(())

@@ -42,6 +42,13 @@ def tuple_equal(this: Tuple, other: Tuple) -> Bool:
                 for elem1, elem2 in zip(this.elements, other.elements)))
 
 
+def tuple_not_equal(this: Tuple, other: Tuple) -> Bool:
+    if len(this.elements) != len(other.elements):
+        return Bool(True)
+    return Bool(any(not(OperatorCall("#equal", [Constant(elem1), Constant(elem2)]).eval(()).value)
+                    for elem1, elem2 in zip(this.elements, other.elements)))
+
+
 def tuple_hash(this: Tuple) -> Int:
     return Int(hash(this.elements))
 
@@ -84,6 +91,7 @@ tuple_class = Class("tuple", {
     "#add_left":        to_primitive_function(tuple_combine),
     "length":           to_primitive_function(tuple_length),
     "#equal":           to_primitive_function(tuple_equal),
+    "#not_equal":       to_primitive_function(tuple_not_equal),
     "#hash":            to_primitive_function(tuple_hash),
     "#to_bool":         to_primitive_function(tuple_to_bool),
     "#contains":        to_primitive_function(tuple_contains),
@@ -154,6 +162,13 @@ def array_equal(this: Array, other: Array) -> Bool:  # TODO
                 for elem1, elem2 in zip(this.elements, other.elements)))
 
 
+def array_not_equal(this: Tuple, other: Tuple) -> Bool:
+    if len(this.elements) != len(other.elements):
+        return Bool(True)
+    return Bool(any(not(OperatorCall("#equal", [Constant(elem1), Constant(elem2)]).eval(()).value)
+                    for elem1, elem2 in zip(this.elements, other.elements)))
+
+
 def array_to_bool(this: Array) -> Bool:
     return Bool(bool(len(this.elements)))
 
@@ -196,6 +211,7 @@ array_class = Class("array", {
     "insert":           to_primitive_function(array_insert),
     "add":              to_primitive_function(array_add),
     "#equal":           to_primitive_function(array_equal),
+    "#not_equal":       to_primitive_function(array_not_equal),
     "#to_bool":         to_primitive_function(array_to_bool),
     "#contains":        to_primitive_function(array_contains),
     "#iter":            to_primitive_function(array_iter),

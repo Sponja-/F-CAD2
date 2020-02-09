@@ -92,5 +92,4 @@ bool_class = Class("bool", {
     "#call":        to_primitive_function(static_bool_call)
 })
 
-
 register_primitive("bool", Bool, bool_class)

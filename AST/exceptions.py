@@ -1,5 +1,5 @@
 from .base import Object, IComputable, IPrimitiveType, Class, to_primitive_function
-from .base import CreatePath, none_object, register_primitive
+from .base import Variable, none_object, register_primitive
 from .statements import IStatement, StatementList
 from typing import Type, Optional
 
@@ -31,8 +31,8 @@ class TryCatch(IStatement):
         finally_result = None
         if result.is_except:
             result.is_except = False
-            with CreatePath(scope_path, {self.except_name: result}) as new_path:
-                catch_result = self.catch_body.eval(new_path)
+            Variable(self.except_name).set_value(scope_path, result)
+            catch_result = self.catch_body.eval(scope_path)
         if result.finally_body is not None:
             finally_result = self.finally_body.eval(scope_path)
         return (catch_result or finally_result) or none_object

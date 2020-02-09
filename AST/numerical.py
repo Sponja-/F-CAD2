@@ -89,23 +89,29 @@ numerical_methods = {
 
 }
 
-int_class = Class("int",
-                  {name: to_primitive_function(numerical_compatible(method))
-                   for name, method in numerical_methods.items()}, {
-                        "#call":        to_primitive_function(static_int_call)
-                   })
-int_class.methods["constructor"] = to_primitive_function(int_constructor)
-int_class.methods["#to_bool"] = to_primitive_function(numerical_to_bool)
-int_class.methods["#hash"] = to_primitive_function(numerical_hash)
-int_class.methods["#to_string"] = to_primitive_function(numerical_to_string)
+int_methods = {name: to_primitive_function(numerical_compatible(method))
+               for name, method in numerical_methods.items()}
+int_methods["constructor"] = to_primitive_function(int_constructor)
+int_methods["#to_bool"] = to_primitive_function(numerical_to_bool)
+int_methods["#hash"] = to_primitive_function(numerical_hash)
+int_methods["#to_string"] = to_primitive_function(numerical_to_string)
 
-float_class = Class("float",
-                    {name: to_primitive_function(numerical_compatible(method))
-                     for name, method in numerical_methods.items()}, {})
-float_class.methods["constructor"] = to_primitive_function(float_constructor)
-float_class.methods["#to_bool"] = to_primitive_function(numerical_to_bool)
-float_class.methods["#hash"] = to_primitive_function(numerical_hash)
-float_class.methods["#to_string"] = to_primitive_function(numerical_to_string)
+
+int_class = Class("int", int_methods, {
+    "#call":        to_primitive_function(static_int_call)
+})
+
+float_methods = {name: to_primitive_function(numerical_compatible(method))
+                 for name, method in numerical_methods.items()}
+float_methods["constructor"] = to_primitive_function(float_constructor)
+float_methods["#to_bool"] = to_primitive_function(numerical_to_bool)
+float_methods["#hash"] = to_primitive_function(numerical_hash)
+float_methods["#to_string"] = to_primitive_function(numerical_to_string)
+
+
+float_class = Class("float", float_methods, {
+    "#call":        to_primitive_function(static_float_call)
+})
 
 register_primitive("int", Int, int_class)
 register_primitive("float", Float, float_class)

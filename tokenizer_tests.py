@@ -1,13 +1,6 @@
 import unittest
 import tokenizer
 from tokenizer import TokenType, Token
-import AST.base
-import AST.statements
-import AST.exceptions
-import AST.logic
-import AST.flow_control
-import AST.numerical
-import AST.collection_types
 
 
 class TokenizerTests(unittest.TestCase):
@@ -69,11 +62,6 @@ class TokenizerTests(unittest.TestCase):
             Token(TokenType.GROUP, ")"),
         ]
         self.assertEqual(T.get_token_list(), tokens)
-
-
-class BaseTests(unittest.TestCase):
-    def instance_test(self):
-        a = 
 
 
 if __name__ == "__main__":

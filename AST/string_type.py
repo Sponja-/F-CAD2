@@ -1,5 +1,6 @@
 from .base import IPrimitiveType, Class, to_primitive_function
 from .base import register_primitive, Object, none_object
+from .logic import Bool
 from .numerical import Int, Float
 from typing import Type
 
@@ -8,6 +9,9 @@ class String(IPrimitiveType):
     def __init__(self, value: str = None):
         self.value = value
         super().__init__(string_class)
+
+    def __repr__(self):
+        return self.value
 
 
 def string_constructor(this: String, arg: Type[Object]):
@@ -38,6 +42,14 @@ def string_combine(this: String, other: String) -> String:
     return String(this.value + other.value)
 
 
+def string_equal(this: String, other: String):
+    return Bool(this.value == other.value)
+
+
+def string_not_equal(this: String, other: String):
+    return Bool(this.value != other.value)
+
+
 def string_to_int(this: String) -> Int:
     return Int(int(this.value))
 
@@ -64,6 +76,8 @@ string_class = Class("string", {
     "#set_item":        to_primitive_function(string_set_item),
     "#del_item":        to_primitive_function(string_del_item),
     "#add_left":        to_primitive_function(string_combine),
+    "#equal":           to_primitive_function(string_equal),
+    "#not_equal":       to_primitive_function(string_not_equal),
     "#to_int":          to_primitive_function(string_to_int),
     "#to_float":        to_primitive_function(string_to_float),
     "#to_string":       to_primitive_function(string_to_string),
