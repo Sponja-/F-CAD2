@@ -5,13 +5,14 @@ from .logic import try_bool
 from typing import Type, Optional, List
 
 
-class IfElseStatement(IStatement):
+class ConditionalStatement(IStatement):
     def __init__(self,
                  condition: Type[IComputable],
                  if_body: StatementList,
-                 else_if_body: Optional[StatementList] = None) -> None:
+                 else_body: Optional[StatementList] = None) -> None:
         self.condition = condition
         self.if_body = if_body
+        self.else_body = else_body
 
     def eval(self, scope_path: tuple) -> Type[Object]:
         if try_bool(self.condition.eval(scope_path)).value:
@@ -70,11 +71,11 @@ class ForStatement(IStatement):
 
     def eval(self, scope_path: tuple) -> Type[Object]:
         for value in self.iterable.eval(scope_path):
-            vars = [value]
+            values = [value]
             if len(self.iter_vars) > 1:
-                vars = unpack(value)
-            for name, var in zip(self.iter_vars, vars):
-                Variable(name).set_value(scope_path, var)
+                values = unpack(value)
+            for name, val in zip(self.iter_vars, values):
+                Variable(name).set_value(scope_path, val)
             result = self.body.eval(scope_path)
             if type(result) is BreakMarker:
                 break

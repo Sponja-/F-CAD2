@@ -15,6 +15,8 @@ class TokenType(Enum):
     SEMICOLON = 8
     DOT = 9
     GROUP = 10
+    RANGE = 11
+    ELLIPSIS = 12
 
 
 TokenValue = TypeVar("TokenValue", int, float, str)
@@ -69,7 +71,9 @@ class Tokenizer:
         "class",
         "extends",
         "new",
-        "null"
+        "null",
+        "break",
+        "continue"
     ]
 
     named_operators = [
@@ -170,6 +174,14 @@ class Tokenizer:
                     result.type = TokenType.OPERATOR
                 self.advance(end)
                 return result
+
+            if self.char == self.next_char == self.text[self.pos + 2]:
+                self.advance(3)
+                return Token(TokenType.ELLIPSIS)
+
+            if self.char == self.next_char:
+                self.advance(2)
+                return Token(TokenType.OPERATOR, '..')
 
             if self.char in Tokenizer.operator_chars:
                 result = Token(TokenType.OPERATOR, self.char)

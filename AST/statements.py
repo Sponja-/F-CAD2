@@ -10,7 +10,7 @@ class IStatement(IComputable):
         return None
 
 
-class Return(IStatement):
+class ReturnStatement(IStatement):
     def __init__(self, value: Type[IComputable]):
         self.value = value
 

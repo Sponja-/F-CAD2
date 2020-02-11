@@ -205,7 +205,7 @@ class Class(IPrimitiveType):
     def object_methods(self):
         methods = {}
         if self.parent is not None:
-            methods.update(self.parent.object_methods)
+            methods.update(self.parent.object_methods())
         methods.update(self.methods)
         return methods
 
@@ -219,6 +219,29 @@ class Class(IPrimitiveType):
         elif self.parent is not None:
             return self.parent.get_method(name)
         raise f"Class {self.name} has no method \"{name}\""
+
+
+class ClassCreate(IComputable):
+    def __init__(self,
+                 name: str,
+                 methods: Dict[str, Type[IComputable]],
+                 statics: Dict[str, Type[IComputable]],
+                 parent_name: Optional[str]) -> None:
+        self.name = name
+        self.methods = methods
+        self.statics = statics
+        self.parent_name = parent_name
+
+    def eval(self, scope_path: tuple) -> Class:
+        return ConstructorCall(Constant(class_class), [
+            Constant(self.name),
+            Constant(forward_declarations["dict"](
+                {forward_declarations["string"](name): value.eval(scope_path) for name, value in self.methods.items()}
+            )),
+            Constant(forward_declarations["dict"](
+                {forward_declarations["string"](name): value.eval(scope_path) for name, value in self.statics.items()}
+            )),
+            Variable(self.parent_name) if self.parent is not None else none_class]).eval(scope_path)
 
 
 def class_constructor(this: Class, name, methods, statics, parent):
@@ -271,7 +294,7 @@ class MemberAccess(IComputable, IAssignable):
         self.object.eval(scope_path).attributes[self.name] = value
 
 
-class Function(IPrimitiveType):
+class Function(IPrimitiveType):  # TODO: Optional/default arguments
     def __init__(self,
                  operation: Type[IComputable],
                  parent_scope: tuple,
@@ -313,10 +336,16 @@ class FunctionCreate(IComputable):
                         self.var_arg_name)
 
 
-def create_locals(func, args):
-    new_locals = {name: arg for name, arg in zip(func.arg_names, args)}
+def create_locals(func, args):  # TODO: Add parent variable
+    unpacked_args = []
+    for obj in args:
+        if type(obj) is list:
+            unpacked_args.extend(obj)
+        else:
+            unpacked_args.append(obj)
+    new_locals = {name: arg for name, arg in zip(func.arg_names, unpacked_args)}
     if func.var_arg_name is not None:
-        new_locals[func.var_arg_name] = forward_declarations["array"](args[len(func.arg_names):])
+        new_locals[func.var_arg_name] = forward_declarations["array"](unpacked_args[len(func.arg_names):])
     if func.bound_object is not None:
         new_locals["this"] = func.bound_object
     return new_locals
@@ -418,6 +447,14 @@ def none_to_int(this):
 
 def none_to_float(this):
     return forward_declarations["float"](0.0)
+
+
+class UnpackOperator(IComputable):
+    def __init__(self, value: Type[IComputable]) -> None:
+        self.value = value
+
+    def eval(self, scope_path: tuple) -> List[Type[Object]]:
+        return unpack(self.value.eval(scope_path))
 
 
 def unpack(obj: Type[Object]) -> List[Type[Object]]:
