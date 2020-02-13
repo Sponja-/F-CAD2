@@ -1,4 +1,5 @@
 from AST.base import ClassCreate, FunctionCreate, Assignment, Variable
+from AST.base import IAssignable
 from AST.statements import StatementList, Statement, ReturnStatement
 from AST.exceptions import *
 from AST.logic import *
@@ -85,37 +86,38 @@ class Parser:
         return self.flow_statement()
 
     def flow_statement(self):
-        if self.token.value == "if":
-            self.eat(TokenType.KEYWORD)
-            self.eat(TokenType.GROUP, '(')
-            condition = self.expr()
-            self.eat(TokenType.GROUP, ')')
-            body = self.statement_block()
-            if self.token.value == "else":
+        if self.token.type == TokenType.KEYWORD:
+            if self.token.value == "if":
                 self.eat(TokenType.KEYWORD)
-                else_body = self.statement_block()
-            else:
-                else_body = None
-            return ConditionalStatement(condition, body, else_body)
-        if self.token.value == "while":
-            self.eat(TokenType.KEYWORD)
-            self.eat(TokenType.GROUP, '(')
-            condition = self.expr()
-            self.eat(TokenType.GROUP, ')')
-            body = self.statement_block()
-            return WhileStatement(condition, body)
-        if self.token.value == "for":
-            self.eat(TokenType.KEYWORD)
-            self.eat(TokenType.GROUP, '(')
-            names = [self.eat(TokenType.NAME)]
-            while self.token.type == TokenType.COMMA:
-                self.eat(TokenType.COMMA)
-                names.append(self.eat(TokenType.NAME))
-            self.eat(TokenType.KEYWORD, "in")
-            iterable = self.expr()
-            self.eat(TokenType.GROUP, ')')
-            body = self.statement_block()
-            return ForStatement(names, iterable, body)
+                self.eat(TokenType.GROUP, '(')
+                condition = self.expr()
+                self.eat(TokenType.GROUP, ')')
+                body = self.statement_block()
+                if self.token.value == "else":
+                    self.eat(TokenType.KEYWORD)
+                    else_body = self.statement_block()
+                else:
+                    else_body = None
+                return ConditionalStatement(condition, body, else_body)
+            if self.token.value == "while":
+                self.eat(TokenType.KEYWORD)
+                self.eat(TokenType.GROUP, '(')
+                condition = self.expr()
+                self.eat(TokenType.GROUP, ')')
+                body = self.statement_block()
+                return WhileStatement(condition, body)
+            if self.token.value == "for":
+                self.eat(TokenType.KEYWORD)
+                self.eat(TokenType.GROUP, '(')
+                names = [self.eat(TokenType.NAME)]
+                while self.token.type == TokenType.COMMA:
+                    self.eat(TokenType.COMMA)
+                    names.append(self.eat(TokenType.NAME))
+                self.eat(TokenType.KEYWORD, "in")
+                iterable = self.expr()
+                self.eat(TokenType.GROUP, ')')
+                body = self.statement_block()
+                return ForStatement(names, iterable, body)
         return self.expr_statement()
 
     def expr_statement(self):
@@ -168,7 +170,18 @@ class Parser:
                         break
                     else:
                         names.append(self.eat(TokenType.NAME))
-            self.eat(TokenType.GROUP, '(')
+            self.eat(TokenType.GROUP, ')')
             body = self.statement_block()
             return Assignment(Variable(name), FunctionCreate(body, names, var_arg_name))
-        return 
+        return self.assignment_expr()
+
+    def assignment(self):
+        var = self.conditional_expr()
+        if self.token.value == '=' and isinstance(var, IAssignable):
+            self.eat(TokenType.OPERATOR)
+            expr = self.assignment()
+            return Assignment(var, expr)
+        return var
+
+    def conditional_expr(self):
+        

@@ -32,9 +32,9 @@ class TryCatch(IStatement):
         if result.is_except:
             result.is_except = False
             Variable(self.except_name).set_value(scope_path, result)
-            catch_result = self.catch_body.eval(scope_path)
+            catch_result = self.catch_body.exec(scope_path)
         if result.finally_body is not None:
-            finally_result = self.finally_body.eval(scope_path)
+            finally_result = self.finally_body.exec(scope_path)
         return (catch_result or finally_result) or none_object
 
 

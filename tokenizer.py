@@ -17,6 +17,7 @@ class TokenType(Enum):
     GROUP = 10
     RANGE = 11
     ELLIPSIS = 12
+    COLON = 13
 
 
 TokenValue = TypeVar("TokenValue", int, float, str)
@@ -57,7 +58,8 @@ class Tokenizer:
     special_chars = {
         ',': TokenType.COMMA,
         ';': TokenType.SEMICOLON,
-        '.': TokenType.DOT
+        '.': TokenType.DOT,
+        ':': TokenType.COLON
     }
 
     keywords = [
@@ -185,8 +187,9 @@ class Tokenizer:
 
             if self.char in Tokenizer.operator_chars:
                 result = Token(TokenType.OPERATOR, self.char)
-                if self.char in ('<', '>', '!', '=') and self.next_char == '=':
-                    result.value += '='
+                if(self.char in ('<', '>', '!', '=', '+', '-', '*', '/', '%') and self.next_char == '=' or
+                   self.char in ('+', '-') and self.next_char == self.char):
+                    result.value += self.next_char
                     self.advance()
                 self.advance()
                 return result

@@ -1,4 +1,4 @@
-from typing import Dict, Iterable, Optional, Callable, List, Type
+from typing import Dict, Iterable, Optional, Callable, List, Type, Union
 from abc import ABC, abstractmethod
 from inspect import getfullargspec
 from functools import wraps
@@ -66,7 +66,7 @@ class Scope:
     scope_n = 0
 
     def __init__(self,
-                 elements: Dict[str, Type[Object]] = {}):
+                 elements: Dict[str, Union[Type[Object]], Type[IComputable], str] = {}):
         self.elements = dict(elements)
 
     def __getitem__(self, path: tuple) -> Type[Object]:
@@ -410,7 +410,13 @@ class OperatorCall(IComputable):
         self.arguments = arguments
 
     def eval(self, scope_path: tuple) -> Type[Object]:
-        objs: List[Object] = [arg.eval(scope_path) for arg in self.arguments]
+        obj_list = [arg.eval(scope_path) for arg in self.arguments]
+        objs = []
+        for obj in obj_list:
+            if type(obj) is list:
+                objs.extend(obj)
+            else:
+                objs.append(obj)
 
         method, position = resolve_overload(self.name, objs)
 
