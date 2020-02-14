@@ -1,9 +1,12 @@
-from .base import Class, IPrimitiveType, Object, forward_declarations, none_object
+from .base import Class, IPrimitiveType, Object, forward_declarations
 from .base import NoneType, to_primitive_function, register_primitive
 from .base import OperatorCall, Constant, FunctionCall, IComputable
+from .base import UnpackOperation, Variable, ConstructorCall, unpack
+from .base import none_object, IAssignable
 from .logic import Bool
 from .numerical import Int
 from .exceptions import Raise, StopIteration
+from .flow_control import ListComprehension
 from typing import List, Type, Dict
 
 
@@ -321,3 +324,29 @@ class ItemAccess(IComputable):
 
     def set_value(self, scope_path: tuple, value: Type[Object]) -> Type[Object]:
         return FunctionCall(self.iterable.eval(scope_path)["#set_item"], self.arguments + [value]).eval(scope_path)
+
+
+class ArrayConstant(IComputable, IAssignable):
+    def __init__(self,
+                 arguments: Type[IComputable]):
+        self.arguments = arguments
+
+    def eval(self, scope_path: tuple) -> Type[Object]:
+        if len(self.arguments) == 1 and isinstance(self.arguments[0], ListComprehension):
+            return ConstructorCall(Variable("array"), UnpackOperation(self.arguments[0])).eval(scope_path)
+        return ConstructorCall(Variable("array"), self.arguments).eval(scope_path)
+
+    def set_value(self, scope_path: tuple, value) -> Type[Object]:
+        for obj in unpack(value):
+            self.arguments.set_value(scope_path, obj)
+
+
+class TupleConstant(IComputable):
+    def __init__(self,
+                 arguments: Type[IComputable]):
+        self.arguments = arguments
+
+    def eval(self, scope_path: tuple) -> Type[Object]:
+        if len(self.arguments) == 1 and isinstance(self.arguments[0], ListComprehension):
+            return self.arguments[0].eval(scope_path)
+        return ConstructorCall(Variable("tuple"), self.arguments).eval(scope_path)

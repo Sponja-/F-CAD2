@@ -8,7 +8,7 @@ from AST.flow_control import BreakStatement, ContinueStatement, ConditionalExpre
 from AST.flow_control import ConditionalStatement, WhileStatement, ForStatement
 from AST.flow_control import ListComprehension, ContainsOperation
 from AST.numerical import Int, Float
-from AST.collection_types import ItemAccess
+from AST.collection_types import ItemAccess, TupleConstant, ArrayConstant
 from AST.string_type import String
 from typing import Any
 
@@ -367,19 +367,15 @@ class Parser:
                 value = self.expr()
                 if self.token.type == TokenType.COMMA:
                     self.eat(TokenType.COMMA)
-                    value = ConstructorCall(Variable("tuple"), [value] + self.expr_list())
+                    value = TupleConstant([value] + self.expr_list())
                 self.eat(TokenType.GROUP, ')')
                 return value
 
             if token.value == '[':
                 self.eat(TokenType.GROUP)
-                value = self.expr()
-                if self.token.type == TokenType.COMMA:
-                    self.eat(TokenType.COMMA)
-                    value = ConstructorCall(Variable("array"), [value] + self.expr_list())
-                if isinstance(value, ListComprehension):
-                    value = ConstructorCall(Variable("array"), UnpackOperation(value))
+                value = ArrayConstant(self.expr_list())
                 self.eat(TokenType.GROUP, ']')
+                return value
 
         if token.type == TokenType.ELLIPSIS:
             return UnpackOperation(self.expr())
