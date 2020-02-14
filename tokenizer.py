@@ -18,6 +18,8 @@ class TokenType(Enum):
     RANGE = 11
     ELLIPSIS = 12
     COLON = 13
+    QUESTION = 14
+    SEPARATOR = 15
 
 
 TokenValue = TypeVar("TokenValue", int, float, str)
@@ -59,7 +61,9 @@ class Tokenizer:
         ',': TokenType.COMMA,
         ';': TokenType.SEMICOLON,
         '.': TokenType.DOT,
-        ':': TokenType.COLON
+        ':': TokenType.COLON,
+        '?': TokenType.QUESTION,
+        '|': TokenType.SEPARATOR
     }
 
     keywords = [
@@ -177,18 +181,18 @@ class Tokenizer:
                 self.advance(end)
                 return result
 
-            if self.char == self.next_char == self.text[self.pos + 2]:
+            if self.char == self.next_char == self.text[self.pos + 2] == '.':
                 self.advance(3)
                 return Token(TokenType.ELLIPSIS)
 
-            if self.char == self.next_char:
+            if self.char == self.next_char == '.':
                 self.advance(2)
                 return Token(TokenType.OPERATOR, '..')
 
             if self.char in Tokenizer.operator_chars:
                 result = Token(TokenType.OPERATOR, self.char)
                 if(self.char in ('<', '>', '!', '=', '+', '-', '*', '/', '%') and self.next_char == '=' or
-                   self.char in ('+', '-') and self.next_char == self.char):
+                   self.char in ('+',) and self.next_char == self.char):
                     result.value += self.next_char
                     self.advance()
                 self.advance()

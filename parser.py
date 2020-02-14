@@ -1,18 +1,30 @@
 from AST.base import ClassCreate, FunctionCreate, Assignment, Variable
 from AST.base import IAssignable
 from AST.statements import StatementList, Statement, ReturnStatement
-from AST.exceptions import *
-from AST.logic import *
-from AST.flow_control import BreakStatement, ContinueStatement
+from AST.exceptions import RaiseStatement
+from AST.logic import NotOperation, OrOperation, AndOperation
+from AST.flow_control import BreakStatement, ContinueStatement, ConditionalExpression
 from AST.flow_control import ConditionalStatement, WhileStatement, ForStatement
 from AST.numerical import *
 from AST.collection_types import *
 from AST.string_type import *
+from typing import Any
 
 from tokenizer import Tokenizer, TokenType
 
 
 class Parser:
+
+    operator_names = {
+        '==':   "equal",
+        '!=':   "not_equal",
+        '<':    "lesser",
+        '<=':   "lesser_equal",
+        '>':    "greater",
+        '>=':   "greater_equal",
+        "in":   "contains"
+    }
+
     def __init__(self, text):
         self.tokens = Tokenizer(text).get_token_list()
         self.pos = 0
@@ -42,13 +54,21 @@ class Parser:
             return self.tokens[self.pos - 1]
         self.error("Expected previous token")
 
-    def eat(self, type, value=None):
+    def eat(self, type: TokenType, value: Any = None):
         if self.token.type != type or (value is not None and self.token.value != value):
             self.error(f"Expected {type}" + (f"of value {value}" if value is not None else ""))
         else:
             value = self.token.value
             self.pos += 1
             return value
+
+    def find_next(self, type: TokenType):
+        start_pos = self.pos
+        while self.token.type != type:
+            self.pos += 1
+        result = self.pos
+        self.pos = start_pos
+        return result
 
     def statement_block(self):
         if self.token.value != '{':
@@ -75,6 +95,8 @@ class Parser:
     def special_statement(self):
         if self.token.value == "return":
             return ReturnStatement(self.expr_statement())
+        if self.token.value == "raise":
+            return RaiseStatement(self.expr_statement())
         if self.token.value == "break":
             self.eat(TokenType.KEYWORD)
             self.eat(TokenType.SEMICOLON)
@@ -121,9 +143,12 @@ class Parser:
         return self.expr_statement()
 
     def expr_statement(self):
-        result = Statement(self.class_definition())
+        result = Statement(self.expr())
         self.eat(TokenType.SEMICOLON)
         return result
+
+    def expr(self):
+        return self.class_definition()
 
     def class_definition(self):
         if self.token.value == "class":
@@ -184,4 +209,43 @@ class Parser:
         return var
 
     def conditional_expr(self):
-        
+        condition = self.logic_expr()
+        if self.token.type == TokenType.QUESTION:
+            self.eat(TokenType.QUESTION)
+            if_expr = self.expr()
+            self.eat(TokenType.COLON)
+            else_expr = self.expr()
+            return ConditionalExpression(condition, if_expr, else_expr)
+        return condition
+
+    def or_expr(self):
+        result = self.and_expr()
+
+        while self.token.value == "or":
+            self.eat(TokenType.OPERATOR)
+            result = OrOperation(result, self.and_expr())
+
+        return result
+
+    def and_expr(self):
+        result = self.not_expr()
+
+        while self.token.value == "and":
+            self.eat(TokenType.OPERATOR)
+            result = AndOperation(result, self.not_expr())
+
+        return result
+
+    def not_expr(self):
+        if self.token.value == "not":
+            self.eat(TokenType.OPERATOR)
+            return NotOperation(self.not_expr())
+
+        return self.in_expr()
+
+    def in_expr(self):
+        value = self.comparation_expr()
+
+        if self.token.value == "in":
+            self.eat(TokenType.OPERATOR)
+            FunctionCall()

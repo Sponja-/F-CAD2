@@ -74,7 +74,7 @@ def tuple_next(this: Tuple) -> Type[Object]:
         this.iter_current += 1
         return result
     else:
-        return Raise(Constant(StopIteration)).eval(())
+        return Raise(Constant(StopIteration)).exec(())
 
 
 def tuple_to_string(this: Tuple):
@@ -88,7 +88,7 @@ def static_tuple_call(this: Class, arg: Type[Object]) -> Tuple:
 tuple_class = Class("tuple", {
     "constructor":      to_primitive_function(tuple_constructor),
     "#get_item":        to_primitive_function(tuple_get_item),
-    "#add_left":        to_primitive_function(tuple_combine),
+    "#append_left":     to_primitive_function(tuple_combine),
     "length":           to_primitive_function(tuple_length),
     "#equal":           to_primitive_function(tuple_equal),
     "#not_equal":       to_primitive_function(tuple_not_equal),
@@ -190,7 +190,7 @@ def array_next(this: Array) -> Array:
         this.iter_current += 1
         return result
     else:
-        return Raise(Constant(StopIteration)).eval(())
+        return Raise(Constant(StopIteration)).exec(())
 
 
 def array_to_string(this: Array):
@@ -206,7 +206,7 @@ array_class = Class("array", {
     "#get_item":        to_primitive_function(array_get_item),
     "#set_item":        to_primitive_function(array_set_item),
     "#del_item":        to_primitive_function(array_del_item),
-    "#add_left":        to_primitive_function(array_combine),
+    "#append_left":     to_primitive_function(array_combine),
     "length":           to_primitive_function(array_length),
     "insert":           to_primitive_function(array_insert),
     "add":              to_primitive_function(array_add),
@@ -312,7 +312,7 @@ dictionary_class = Class("dict", {
     "#get_item":        to_primitive_function(dict_get_item),
     "#set_item":        to_primitive_function(dict_set_item),
     "#del_item":        to_primitive_function(dict_del_item),
-    "#add_left":        to_primitive_function(dict_combine),
+    "#append_left":     to_primitive_function(dict_combine),
     "update":           to_primitive_function(dict_update),
     "keys":             to_primitive_function(dict_keys),
     "values":           to_primitive_function(dict_values),

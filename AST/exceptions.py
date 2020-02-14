@@ -4,7 +4,7 @@ from .statements import IStatement, StatementList
 from typing import Type, Optional
 
 
-class Raise(IStatement):
+class RaiseStatement(IStatement):
     def __init__(self, value: IComputable) -> None:
         self.value = value
 
@@ -26,7 +26,7 @@ class TryCatch(IStatement):
         self.finally_body = finally_body
 
     def eval(self, scope_path: tuple) -> Type[Object]:
-        result = self.try_body.eval(scope_path)
+        result = self.try_body.exec(scope_path)
         catch_result = None
         finally_result = None
         if result.is_except:

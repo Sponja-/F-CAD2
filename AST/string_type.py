@@ -75,7 +75,7 @@ string_class = Class("string", {
     "#get_item":        to_primitive_function(string_get_item),
     "#set_item":        to_primitive_function(string_set_item),
     "#del_item":        to_primitive_function(string_del_item),
-    "#add_left":        to_primitive_function(string_combine),
+    "#append_left":     to_primitive_function(string_combine),
     "#equal":           to_primitive_function(string_equal),
     "#not_equal":       to_primitive_function(string_not_equal),
     "#to_int":          to_primitive_function(string_to_int),

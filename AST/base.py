@@ -17,6 +17,9 @@ class Object:
     def call(self, name: str, scope_path: tuple = (), args: List[Type["Object"]] = []) -> Type["Object"]:
         return FunctionCall(Constant(self.attributes[name]), [Constant(arg) for arg in args]).eval(scope_path)
 
+    def __getitem__(self, index):
+        return self.attributes[index]
+
     def __hash__(self):
         return self.call("#hash").value
 
