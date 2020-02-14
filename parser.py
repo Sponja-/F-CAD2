@@ -1,13 +1,14 @@
 from AST.base import ClassCreate, FunctionCreate, Assignment, Variable
 from AST.base import IAssignable, FunctionCall, OperatorCall, MemberAccess
-from Ast.Base import ConstructorCall
+from Ast.Base import ConstructorCall, UnpackOperation
 from AST.statements import StatementList, Statement, ReturnStatement
 from AST.exceptions import RaiseStatement
 from AST.logic import NotOperation, OrOperation, AndOperation
 from AST.flow_control import BreakStatement, ContinueStatement, ConditionalExpression
-from AST.flow_control import ConditionalStatement, WhileStatement, ForStatement, ContainsOperation
+from AST.flow_control import ConditionalStatement, WhileStatement, ForStatement
+from AST.flow_control import ListComprehension, ContainsOperation
 from AST.numerical import Int, Float
-from AST.collection_types import ItemAccess, ListComprehension
+from AST.collection_types import ItemAccess
 from AST.string_type import String
 from typing import Any
 
@@ -116,6 +117,13 @@ class Parser:
             return ContinueStatement()
         return self.flow_statement()
 
+    def name_list(self):
+        names = [self.eat(TokenType.NAME)]
+        while self.token.type == TokenType.COMMA:
+            self.eat(TokenType.COMMA)
+            names.append(self.eat(TokenType.NAME))
+        return names
+
     def flow_statement(self):
         if self.token.type == TokenType.KEYWORD:
             if self.token.value == "if":
@@ -140,10 +148,7 @@ class Parser:
             if self.token.value == "for":
                 self.eat(TokenType.KEYWORD)
                 self.eat(TokenType.GROUP, '(')
-                names = [self.eat(TokenType.NAME)]
-                while self.token.type == TokenType.COMMA:
-                    self.eat(TokenType.COMMA)
-                    names.append(self.eat(TokenType.NAME))
+                names = self.name_list()
                 self.eat(TokenType.KEYWORD, "in")
                 iterable = self.expr()
                 self.eat(TokenType.GROUP, ')')
@@ -210,12 +215,26 @@ class Parser:
         return self.assignment_expr()
 
     def assignment(self):
-        var = self.conditional_expr()
+        var = self.list_comp_expr()
         if self.token.value == '=' and isinstance(var, IAssignable):
             self.eat(TokenType.OPERATOR)
             expr = self.assignment()
             return Assignment(var, expr)
         return var
+
+    def list_comp_expr(self):
+        operation = self.conditional_expr()
+        if self.token.type == TokenType.SEPARATOR:
+            self.eat(TokenType.KEYWORD)
+            iter_vars = self.name_list()
+            self.eat(TokenType.KEYWORD, "in")
+            iterable = self.expr()
+            if self.token.type == TokenType.COMMA:
+                conditions = self.expr_list()
+            else:
+                conditions = []
+            return ListComprehension(operation, iter_vars, iterable, conditions)
+        return operation
 
     def conditional_expr(self):
         condition = self.logic_expr()
@@ -349,8 +368,6 @@ class Parser:
                 if self.token.type == TokenType.COMMA:
                     self.eat(TokenType.COMMA)
                     value = ConstructorCall(Variable("tuple"), [value] + self.expr_list())
-                elif isinstance(value, ListComprehension):
-                    
                 self.eat(TokenType.GROUP, ')')
                 return value
 
@@ -360,4 +377,11 @@ class Parser:
                 if self.token.type == TokenType.COMMA:
                     self.eat(TokenType.COMMA)
                     value = ConstructorCall(Variable("array"), [value] + self.expr_list())
+                if isinstance(value, ListComprehension):
+                    value = ConstructorCall(Variable("array"), UnpackOperation(value))
                 self.eat(TokenType.GROUP, ']')
+
+        if token.type == TokenType.ELLIPSIS:
+            return UnpackOperation(self.expr())
+
+        return None

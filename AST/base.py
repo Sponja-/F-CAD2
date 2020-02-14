@@ -458,7 +458,7 @@ def none_to_float(this):
     return forward_declarations["float"](0.0)
 
 
-class UnpackOperator(IComputable):
+class UnpackOperation(IComputable):
     def __init__(self, value: Type[IComputable]) -> None:
         self.value = value
 

@@ -9,16 +9,13 @@ from typing import List, Type, Dict
 
 class Tuple(IPrimitiveType):
     def __init__(self, elements) -> None:
-        self.elements = elements
+        self.elements = tuple(elements)
         self.iter_current = 0
         super().__init__(tuple_class)
 
 
-def tuple_constructor(this: Tuple, arg: Type[Object]):
-    if arg.type.name in ("array", "tuple"):
-        this.elements = tuple(arg.elements)
-    elif "#iter" in arg.attributes:
-        this.elements = tuple(arg)
+def tuple_constructor(this: Tuple, *args: Type[Object]):
+    this.elements = tuple(args)
     return none_object
 
 
@@ -98,7 +95,7 @@ tuple_class = Class("tuple", {
 
 class Array(IPrimitiveType):
     def __init__(self, elements: List[Type[Object]]) -> None:
-        self.elements = elements
+        self.elements = list(elements)
         self.iter_current = 0
         super().__init__(array_class)
 
@@ -305,6 +302,7 @@ dictionary_class = Class("dict", {
 }, {
     "#call":            to_primitive_function(static_dict_call)
 })
+
 
 register_primitive("tuple", Tuple, tuple_class)
 register_primitive("array", Array, array_class)

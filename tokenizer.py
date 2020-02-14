@@ -19,6 +19,7 @@ class TokenType(Enum):
     ELLIPSIS = 12
     COLON = 13
     QUESTION = 14
+    SEPARATOR = 15
 
 
 TokenValue = TypeVar("TokenValue", int, float, str)
@@ -61,7 +62,8 @@ class Tokenizer:
         ';': TokenType.SEMICOLON,
         '.': TokenType.DOT,
         ':': TokenType.COLON,
-        '?': TokenType.QUESTION
+        '?': TokenType.QUESTION,
+        '|': TokenType.SEPARATOR
     }
 
     keywords = [
