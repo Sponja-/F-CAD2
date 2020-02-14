@@ -127,3 +127,9 @@ class ContainsOperation(IComputable):
                     return Bool(True)
             return Bool(False)
         raise SyntaxError
+
+
+class ListComprehension(IComputable):
+    def __init__(self,
+                 operation: Type[IComputable],
+                 iter_vars: )

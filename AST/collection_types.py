@@ -103,11 +103,8 @@ class Array(IPrimitiveType):
         super().__init__(array_class)
 
 
-def array_constructor(this: Array, arg: Type[Object]):
-    if arg.type.name in ("array", "tuple"):
-        this.elements = list(arg.elements)
-    elif "#iter" in arg.attributes:
-        this.elements = list(arg)
+def array_constructor(this: Array, *args):
+    this.elements = list(args)
     return none_object
 
 

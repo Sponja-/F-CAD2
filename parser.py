@@ -7,7 +7,7 @@ from AST.logic import NotOperation, OrOperation, AndOperation
 from AST.flow_control import BreakStatement, ContinueStatement, ConditionalExpression
 from AST.flow_control import ConditionalStatement, WhileStatement, ForStatement, ContainsOperation
 from AST.numerical import Int, Float
-from AST.collection_types import ItemAccess
+from AST.collection_types import ItemAccess, ListComprehension
 from AST.string_type import String
 from typing import Any
 
@@ -345,21 +345,19 @@ class Parser:
         if token.type == TokenType.GROUP:
             if token.value == '(':
                 self.eat(TokenType.GROUP)
-                start_pos = self.pos
                 value = self.expr()
                 if self.token.type == TokenType.COMMA:
-                    self.pos = start_pos
-                    value = ConstructorCall(Variable("tuple"), self.expr_list())
+                    self.eat(TokenType.COMMA)
+                    value = ConstructorCall(Variable("tuple"), [value] + self.expr_list())
+                elif isinstance(value, ListComprehension):
+                    
                 self.eat(TokenType.GROUP, ')')
                 return value
 
             if token.value == '[':
                 self.eat(TokenType.GROUP)
-                start_pos = self.pos
                 value = self.expr()
                 if self.token.type == TokenType.COMMA:
-                    self.pos = start_pos
-                    value = ConstructorCall(Variable("array", self.expr_list()))
-                elif self.token.type == TokenType.COMMA:
-                    
+                    self.eat(TokenType.COMMA)
+                    value = ConstructorCall(Variable("array"), [value] + self.expr_list())
                 self.eat(TokenType.GROUP, ']')
