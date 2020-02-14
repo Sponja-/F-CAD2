@@ -1,6 +1,6 @@
 from AST.base import ClassCreate, FunctionCreate, Assignment, Variable
 from AST.base import IAssignable, FunctionCall, OperatorCall, MemberAccess
-from Ast.Base import ConstructorCall, UnpackOperation
+from AST.base import ConstructorCall, UnpackOperation, Constant, Destructuring
 from AST.statements import StatementList, Statement, ReturnStatement
 from AST.exceptions import RaiseStatement
 from AST.logic import NotOperation, OrOperation, AndOperation
@@ -8,8 +8,8 @@ from AST.flow_control import BreakStatement, ContinueStatement, ConditionalExpre
 from AST.flow_control import ConditionalStatement, WhileStatement, ForStatement
 from AST.flow_control import ListComprehension, ContainsOperation
 from AST.numerical import Int, Float
-from AST.collection_types import ItemAccess, TupleConstant, ArrayConstant
-from AST.string_type import String
+from AST.collection_types import ItemAccess, TupleConstant, ArrayConstant, DictionaryConstant
+from AST.text import String
 from typing import Any
 
 from tokenizer import Tokenizer, TokenType
@@ -311,12 +311,22 @@ class Parser:
             value = OperatorCall("#exponent", [value, self.trailer_expr()])
         return value
 
-    def expr_list(self):
+    def expr_list(self, **kwargs):
+        with_kwargs = kwargs.get("with_kwargs", False)
+        start_symbol = self.token.value
         result = [self.expr()]
+        kwarg_lines = []
         while self.token.type == TokenType.COMMA:
+            if (with_kwargs and
+               isinstance(result[-1], Assignment) and
+               isinstance(result[-1].object, Variable) and
+               start_symbol != '('):
+                kv_pair = result.pop()
+                kwarg_lines.append(String(kv_pair.object.name), kv_pair.value)
             self.eat(TokenType.COMMA)
+            start_symbol = self.token.value
             result.append(self.expr())
-        return result
+        return result if not with_kwargs else (result, DictionaryConstant(kwarg_lines))
 
     def trailer_expr(self):
         value = self.atom()
@@ -328,9 +338,8 @@ class Parser:
                 return MemberAccess(value, member_name)
             if self.token.value == '(':
                 self.eat(TokenType.GROUP)
-                arguments = self.expr_list()
-                self.eat(TokenType.GROUP, ')')
-                value = FunctionCall(value, arguments)
+                args, kwargs = self.expr_list(with_kwargs=True)
+                value = FunctionCall(value, args, kwargs)
             if self.token.value == '[':
                 self.eat(TokenType.GROUP)
                 arguments = self.expr_list()
@@ -345,13 +354,13 @@ class Parser:
             self.eat(TokenType.KEYWORD)
             type = self.atom()
             self.eat(TokenType.GROUP, '(')
-            arguments = self.expr()
+            args, kwargs = self.expr(with_kwargs=True)
             self.eat(TokenType.GROUP, ')')
-            return ConstructorCall(type, arguments)
+            return ConstructorCall(type, args, kwargs)
 
         if token.type == TokenType.NUMBER:
             self.eat(TokenType.NUMBER)
-            return Int(token.value) if type(token.value) is int else Float(token.value)
+            return Constant(Int(token.value)) if type(token.value) is int else Constant(Float(token.value))
 
         if token.type == TokenType.NAME:
             self.eat(TokenType.NAME)
@@ -359,7 +368,7 @@ class Parser:
 
         if token.type == TokenType.STRING:
             self.eat(TokenType.STRING)
-            return String(token.value)
+            return Constant(String(token.value))
 
         if token.type == TokenType.GROUP:
             if token.value == '(':
@@ -376,6 +385,33 @@ class Parser:
                 value = ArrayConstant(self.expr_list())
                 self.eat(TokenType.GROUP, ']')
                 return value
+
+            if token.value == '{':
+                self.eat(TokenType.GROUP)
+                key = self.expr()
+                if isinstance(key, Variable):
+                    if self.token.type == TokenType.COMMA:
+                        self.eat(TokenType.COMMA)
+                        key = Destructuring([key.name] + self.name_list())
+                        self.eat(TokenType.GROUP, '}')
+                        return key
+                    elif self.token.key == '}':
+                        key = Destructuring([key.name])
+                        self.eat(TokenType.GROUP)
+                        return key
+                self.eat(TokenType.COLON)
+                value = self.expr()
+                lines = [(key, value)]
+                while self.token.type == TokenType.COMMA:
+                    self.eat(TokenType.COMMA)
+                    key = self.expr()
+                    if isinstance(key, UnpackOperation):
+                        lines.append((key,))
+                    else:
+                        self.eat(TokenType.COLON)
+                        value = self.expr()
+                        lines.append((key, value))
+                return DictionaryConstant(lines)
 
         if token.type == TokenType.ELLIPSIS:
             return UnpackOperation(self.expr())

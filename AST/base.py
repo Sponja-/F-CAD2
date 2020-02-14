@@ -177,14 +177,23 @@ def to_primitive_function(func: Callable) -> "Function":
 
     arg_names = specs[0]
     var_arg_name = specs[1]
+    has_kw_arg = specs[2] is not None
 
     @wraps(func)
     def primitive_func(scope_path: tuple):
-        if var_arg_name is None:
-            return func(*[Variable(name).eval(scope_path) for name in arg_names])
+        if has_kw_arg:
+            kwargs = {key.value: value for key, value in Variable("#kwargs").eval(scope_path)}
+            if var_arg_name is None:
+                return func(*[Variable(name).eval(scope_path) for name in arg_names], **kwargs)
+            else:
+                return func(*[Variable(name).eval(scope_path) for name in arg_names],
+                            *Variable(var_arg_name).eval(scope_path).elements, **kwargs)
         else:
-            return func(*[Variable(name).eval(scope_path) for name in arg_names],
-                        *Variable(var_arg_name).eval(scope_path).elements)
+            if var_arg_name is None:
+                return func(*[Variable(name).eval(scope_path) for name in arg_names])
+            else:
+                return func(*[Variable(name).eval(scope_path) for name in arg_names],
+                            *Variable(var_arg_name).eval(scope_path).elements)
 
     return Function(PrimitiveCall(primitive_func),
                     (),
@@ -259,9 +268,12 @@ def class_constructor(this: Class, name, methods, statics, parent):
 
 
 class ConstructorCall(IComputable):
-    def __init__(self, type: IComputable, arguments: List[IComputable]) -> None:
+    def __init__(self,
+                 type: IComputable,
+                 args: Iterable[IComputable],
+                 kwargs) -> None:
         self.type = type
-        self.arguments = arguments
+        self.args = args
 
     def eval(self, scope_path: tuple) -> Type[Object]:
         t = self.type.eval(scope_path)
@@ -273,7 +285,7 @@ class ConstructorCall(IComputable):
         if "constructor" in new_obj.attributes:
             constructor = new_obj.attributes["constructor"]
 
-            new_locals = create_locals(constructor, [arg.eval(scope_path) for arg in self.arguments])
+            new_locals = create_locals(constructor, [arg.eval(scope_path) for arg in self.args])
 
             with CreateScope(constructor.parent_scope, new_locals) as new_path:
                 constructor.operation.eval(new_path)
@@ -288,13 +300,19 @@ class MemberAccess(IComputable, IAssignable):
         self.name = name
 
     def eval(self, scope_path: tuple) -> Type[Object]:
-        obj = self.object.eval(scope_path)
-        if self.name in obj.attributes:
-            return obj.attributes[self.name]
-        raise f"Object {obj.type} has no attribute \"{self.name}\""
+        return self.object.eval(scope_path).attributes[self.name]
 
-    def set_value(self, scope_path, value: Object) -> None:
+    def set_value(self, scope_path: tuple, value: Object) -> None:
         self.object.eval(scope_path).attributes[self.name] = value
+
+
+class Destructuring(IAssignable):
+    def __init__(self, names: List[str]):
+        self.names = names
+
+    def set_value(self, scope_path: tuple, value: Object):
+        for name in self.names:
+            Variable(name).set_value(scope_path, value.attributes[name])
 
 
 class Function(IPrimitiveType):  # TODO: Optional/default arguments
@@ -339,11 +357,13 @@ class FunctionCreate(IComputable):
                         self.var_arg_name)
 
 
-def create_locals(func, args):  # TODO: Add parent variable
+def create_locals(func, args: List[Type[Object]], kwargs: Dict[str, Type[Object]]):  # TODO: Add parent variable
     unpacked_args = []
     for obj in args:
         if type(obj) is list:
             unpacked_args.extend(obj)
+        elif type(obj) is dict:
+            kwargs.update(obj)
         else:
             unpacked_args.append(obj)
     new_locals = {name: arg for name, arg in zip(func.arg_names, unpacked_args)}
@@ -351,23 +371,25 @@ def create_locals(func, args):  # TODO: Add parent variable
         new_locals[func.var_arg_name] = forward_declarations["array"](unpacked_args[len(func.arg_names):])
     if func.bound_object is not None:
         new_locals["this"] = func.bound_object
+    new_locals["#kwargs"] = forward_declarations["dict"](kwargs)
     return new_locals
 
 
 class FunctionCall(IComputable):
     def __init__(self,
                  function: Type[IComputable],
-                 arguments: Iterable[IComputable]) -> None:
+                 args: Iterable[IComputable],
+                 kwargs) -> None:
         self.function = function
-        self.arguments = arguments
+        self.args = args
+        self.kwargs = kwargs
 
     def eval(self, scope_path: tuple) -> Type[Object]:
         f = self.function.eval(scope_path)
         if type(f) is not Function:
             f = f.attributes["#call"]
-        assert(len(f.arg_names) <= len(self.arguments))
 
-        new_locals = create_locals(f, [arg.eval(scope_path) for arg in self.arguments])
+        new_locals = create_locals(f, [arg.eval(scope_path) for arg in self.args], self.kwargs.eval(scope_path))
         with CreateScope(f.parent_scope, new_locals) as new_path:
             result = f.operation.eval(new_path)
             result.is_return = False
@@ -429,7 +451,7 @@ class OperatorCall(IComputable):
 
         del objs[position]
 
-        new_locals = create_locals(method, objs)
+        new_locals = create_locals(method, objs, {})
 
         with CreateScope(method.parent_scope, new_locals) as new_path:
             result = method.operation.eval(new_path)
@@ -466,8 +488,11 @@ class UnpackOperation(IComputable):
         return unpack(self.value.eval(scope_path))
 
 
-def unpack(obj: Type[Object]) -> List[Type[Object]]:
-    return list(obj)
+def unpack(obj: Type[Object]):
+    if isinstance(obj, forward_declarations["dict"]):
+        return obj.elements
+    else:
+        return list(obj)
 
 
 def register_primitive(name: str, cls, type: Class) -> None:

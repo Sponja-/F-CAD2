@@ -328,7 +328,7 @@ class ItemAccess(IComputable):
 
 class ArrayConstant(IComputable, IAssignable):
     def __init__(self,
-                 arguments: Type[IComputable]):
+                 arguments: Type[IComputable]) -> None:
         self.arguments = arguments
 
     def eval(self, scope_path: tuple) -> Type[Object]:
@@ -337,16 +337,36 @@ class ArrayConstant(IComputable, IAssignable):
         return ConstructorCall(Variable("array"), self.arguments).eval(scope_path)
 
     def set_value(self, scope_path: tuple, value) -> Type[Object]:
-        for obj in unpack(value):
-            self.arguments.set_value(scope_path, obj)
+        iterator = iter(value)
+        for arg in self.arguments[:-1]:
+            arg.set_value(scope_path, next(iterator))
+        if isinstance(self.arguments[:-1], UnpackOperation):
+            self.arguments[:-1].value.set_value(scope_path, Tuple(iterator))
+        else:
+            self.arguments[:-1].set_value(scope_path, next(iterator))
 
 
 class TupleConstant(IComputable):
     def __init__(self,
-                 arguments: Type[IComputable]):
+                 arguments: Type[IComputable]) -> None:
         self.arguments = arguments
 
     def eval(self, scope_path: tuple) -> Type[Object]:
         if len(self.arguments) == 1 and isinstance(self.arguments[0], ListComprehension):
             return self.arguments[0].eval(scope_path)
         return ConstructorCall(Variable("tuple"), self.arguments).eval(scope_path)
+
+
+class DictionaryConstant(IComputable):
+    def __init__(self, lines: List) -> None:
+        self.lines = lines
+
+    def eval(self, scope_path: tuple) -> Type[Object]:
+        result_elems = {}
+        for line in self.lines:
+            if len(line) == 2:
+                result_elems[line[0].eval(scope_path)] = line[1].eval(scope_path)
+            else:
+                assert(isinstance(line[0], UnpackOperation))
+                result_elems.update(line[0].value.eval(scope_path).elements)
+        return Dictionary(result_elems)
