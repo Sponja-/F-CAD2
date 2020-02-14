@@ -1,13 +1,15 @@
 from .base import IPrimitiveType, Class, to_primitive_function
-from .base import register_primitive, Object, none_object
+from .base import register_primitive, Object, none_object, Constant
 from .logic import Bool
 from .numerical import Int, Float
+from .exceptions import Raise, StopIteration
 from typing import Type
 
 
 class String(IPrimitiveType):
     def __init__(self, value: str = None):
         self.value = value
+        self.iter_current = 0
         super().__init__(string_class)
 
     def __repr__(self):
@@ -66,6 +68,20 @@ def string_hash(this: String) -> Int:
     return Int(hash(this.value))
 
 
+def string_iter(this: String) -> String:
+    this.iter_current
+    return this
+
+
+def string_next(this: String) -> String:
+    if this.iter_current <= len(this.elements):
+        result = String(this.elements[this.iter_current])
+        this.iter_current += 1
+        return result
+    else:
+        return Raise(Constant(StopIteration)).exec(())
+
+
 def static_string_call(this: Class, arg: Type[Object]) -> String:
     return arg.call("#to_string")
 
@@ -81,7 +97,9 @@ string_class = Class("string", {
     "#to_int":          to_primitive_function(string_to_int),
     "#to_float":        to_primitive_function(string_to_float),
     "#to_string":       to_primitive_function(string_to_string),
-    "#hash":            to_primitive_function(string_hash)
+    "#hash":            to_primitive_function(string_hash),
+    "#iter":            to_primitive_function(string_iter),
+    "#next":            to_primitive_function(string_next)
 }, {
     "#call":            to_primitive_function(static_string_call)
 })

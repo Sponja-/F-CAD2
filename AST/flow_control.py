@@ -1,7 +1,7 @@
-from .base import IComputable, Object, none_object
-from .base import unpack, Variable, IAssignable
+from .base import IComputable, Object, none_object, FunctionCall, Constant
+from .base import unpack, Variable, IAssignable, OperatorCall
 from .statements import IStatement, StatementList
-from .logic import try_bool
+from .logic import try_bool, Bool
 from typing import Type, Optional, List
 
 
@@ -106,3 +106,24 @@ class ForStatement(IStatement):
             if result.is_return or result.is_except:
                 return result
         return none_object
+
+
+class ContainsOperation(IComputable):
+    def __init__(self,
+                 value: Type[IComputable],
+                 iterable: Type[IComputable]) -> None:
+        self.value = value
+        self.iterable = iterable
+
+    def eval(self, scope_path: tuple) -> Bool:
+        iter = self.iterable.eval(scope_path)
+        if "#contains" in iter.attributes:
+            return Bool(try_bool(FunctionCall(iter["#contains"], [self.value]).eval(scope_path)).value)
+        elif "#iter" in iter.attributes:
+            val = self.value.eval(scope_path)
+            iterator = iter.call("#iter")
+            for elem in iterator:
+                if OperatorCall("#equal", [Constant(elem), Constant(val)]).eval(()).value:
+                    return Bool(True)
+            return Bool(False)
+        raise SyntaxError

@@ -1,6 +1,6 @@
 from .base import Class, IPrimitiveType, Object, forward_declarations, none_object
 from .base import NoneType, to_primitive_function, register_primitive
-from .base import OperatorCall, Constant
+from .base import OperatorCall, Constant, FunctionCall, IComputable
 from .logic import Bool
 from .numerical import Int
 from .exceptions import Raise, StopIteration
@@ -57,12 +57,6 @@ def tuple_to_bool(this: Tuple) -> Bool:
     return Bool(bool(len(this.elements)))
 
 
-def tuple_contains(this: Tuple, value: Type[Object]) -> Bool:
-    const_value = Constant(value)
-    return Bool(any(OperatorCall("#equal", [Constant(elem), const_value]).eval(()).value
-                    for elem in this.elements))
-
-
 def tuple_iter(this: Tuple) -> Tuple:
     this.iter_current = 0
     return this
@@ -94,7 +88,6 @@ tuple_class = Class("tuple", {
     "#not_equal":       to_primitive_function(tuple_not_equal),
     "#hash":            to_primitive_function(tuple_hash),
     "#to_bool":         to_primitive_function(tuple_to_bool),
-    "#contains":        to_primitive_function(tuple_contains),
     "#iter":            to_primitive_function(tuple_iter),
     "#next":            to_primitive_function(tuple_next),
     "#to_string":       to_primitive_function(tuple_to_string)
@@ -173,12 +166,6 @@ def array_to_bool(this: Array) -> Bool:
     return Bool(bool(len(this.elements)))
 
 
-def array_contains(this: Array, value: Type[Object]) -> Bool:
-    const_value = Constant(value)
-    return Bool(any(OperatorCall("#equal", [Constant(elem), const_value]).eval(()).value
-                    for elem in this.elements))
-
-
 def array_iter(this: Array) -> Array:
     this.iter_current = 0
     return this
@@ -213,7 +200,6 @@ array_class = Class("array", {
     "#equal":           to_primitive_function(array_equal),
     "#not_equal":       to_primitive_function(array_not_equal),
     "#to_bool":         to_primitive_function(array_to_bool),
-    "#contains":        to_primitive_function(array_contains),
     "#iter":            to_primitive_function(array_iter),
     "#next":            to_primitive_function(array_next),
     "#to_string":       to_primitive_function(array_to_string)
@@ -326,3 +312,17 @@ dictionary_class = Class("dict", {
 register_primitive("tuple", Tuple, tuple_class)
 register_primitive("array", Array, array_class)
 register_primitive("dict", Dictionary, dictionary_class)
+
+
+class ItemAccess(IComputable):
+    def __init__(self,
+                 iterable: Type[IComputable],
+                 arguments: Type[IComputable]):
+        self.iterable = iterable
+        self.arguments = arguments
+
+    def eval(self, scope_path: tuple) -> Type[Object]:
+        return FunctionCall(self.iterable.eval(scope_path)["#get_item"], self.arguments).eval(scope_path)
+
+    def set_value(self, scope_path: tuple, value: Type[Object]) -> Type[Object]:
+        return FunctionCall(self.iterable.eval(scope_path)["#set_item"], self.arguments + [value]).eval(scope_path)

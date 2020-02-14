@@ -1,13 +1,14 @@
 from AST.base import ClassCreate, FunctionCreate, Assignment, Variable
-from AST.base import IAssignable
+from AST.base import IAssignable, FunctionCall, OperatorCall, MemberAccess
+from Ast.Base import ConstructorCall
 from AST.statements import StatementList, Statement, ReturnStatement
 from AST.exceptions import RaiseStatement
 from AST.logic import NotOperation, OrOperation, AndOperation
 from AST.flow_control import BreakStatement, ContinueStatement, ConditionalExpression
-from AST.flow_control import ConditionalStatement, WhileStatement, ForStatement
-from AST.numerical import *
-from AST.collection_types import *
-from AST.string_type import *
+from AST.flow_control import ConditionalStatement, WhileStatement, ForStatement, ContainsOperation
+from AST.numerical import Int, Float
+from AST.collection_types import ItemAccess
+from AST.string_type import String
 from typing import Any
 
 from tokenizer import Tokenizer, TokenType
@@ -15,14 +16,22 @@ from tokenizer import Tokenizer, TokenType
 
 class Parser:
 
+    comparation_operators = ('==', '!=', '<', '<=', '>', '>=')
+
     operator_names = {
-        '==':   "equal",
-        '!=':   "not_equal",
-        '<':    "lesser",
-        '<=':   "lesser_equal",
-        '>':    "greater",
-        '>=':   "greater_equal",
-        "in":   "contains"
+        '==':   "#equal",
+        '!=':   "#not_equal",
+        '<':    "#lesser",
+        '<=':   "#lesser_equal",
+        '>':    "#greater",
+        '>=':   "#greater_equal",
+        'in':   "#contains",
+        '+':    "#add",
+        '-':    "#substract",
+        '*':    "#multiply",
+        '/':    "#divide",
+        '%':    "#modulo",
+        '^':    "#exponent"
     }
 
     def __init__(self, text):
@@ -212,40 +221,145 @@ class Parser:
         condition = self.logic_expr()
         if self.token.type == TokenType.QUESTION:
             self.eat(TokenType.QUESTION)
-            if_expr = self.expr()
+            if_expr = self.logic_expr()
             self.eat(TokenType.COLON)
-            else_expr = self.expr()
+            else_expr = self.logic_expr()
             return ConditionalExpression(condition, if_expr, else_expr)
         return condition
 
     def or_expr(self):
-        result = self.and_expr()
-
+        value = self.and_expr()
         while self.token.value == "or":
             self.eat(TokenType.OPERATOR)
-            result = OrOperation(result, self.and_expr())
-
-        return result
+            value = OrOperation(value, self.and_expr())
+        return value
 
     def and_expr(self):
-        result = self.not_expr()
-
+        value = self.not_expr()
         while self.token.value == "and":
             self.eat(TokenType.OPERATOR)
-            result = AndOperation(result, self.not_expr())
-
-        return result
+            value = AndOperation(value, self.not_expr())
+        return value
 
     def not_expr(self):
         if self.token.value == "not":
             self.eat(TokenType.OPERATOR)
             return NotOperation(self.not_expr())
-
         return self.in_expr()
 
     def in_expr(self):
         value = self.comparation_expr()
-
         if self.token.value == "in":
             self.eat(TokenType.OPERATOR)
-            FunctionCall()
+            return ContainsOperation(value, self.expr())
+        return value
+
+    def comparation_expr(self):
+        value = self.term_expr()
+        if self.token.value in Parser.comparation_operators:
+            operator = self.token.value
+            self.eat(TokenType.OPERATOR)
+            last_operand = self.term_expr()
+            value = OperatorCall(Parser.operator_names[operator], [value, last_operand])
+            while self.token.value in Parser.comparation_operators:  # Allows a < x < b
+                operator = self.token.value
+                self.eat(TokenType.OPERATOR)
+                op = self.term_expr()
+                value = AndOperation(value, OperatorCall(Parser.operator_names[operator], [last_operand, op]))
+                last_operand = op
+        return value
+
+    def term_expr(self):
+        value = self.factor_expr()
+        while self.token.value in ('+', '-'):
+            operator = self.token.value
+            self.eat(TokenType.OPERATOR)
+            value = OperatorCall(Parser.operator_names[operator], [value, self.factor_expr()])
+        return value
+
+    def factor_expr(self):
+        value = self.power_expr()
+        while self.token.value in ('*', '/', '%'):
+            operator = self.token.value
+            self.eat(TokenType.OPERATOR)
+            value = OperatorCall(Parser.operator_names[operator], [value, self.power_expr()])
+        return value
+
+    def power_expr(self):
+        value = self.trailer_expr()
+        while self.token.value == '^':
+            self.eat(TokenType.OPERATOR)
+            value = OperatorCall("#exponent", [value, self.trailer_expr()])
+        return value
+
+    def expr_list(self):
+        result = [self.expr()]
+        while self.token.type == TokenType.COMMA:
+            self.eat(TokenType.COMMA)
+            result.append(self.expr())
+        return result
+
+    def trailer_expr(self):
+        value = self.atom()
+        while self.token.value in ('(', '[') or self.token.type == TokenType.DOT:
+            if self.token.type == TokenType.DOT:
+                self.eat(TokenType.DOT)
+                member_name = self.token.value
+                self.eat(TokenType.NAME)
+                return MemberAccess(value, member_name)
+            if self.token.value == '(':
+                self.eat(TokenType.GROUP)
+                arguments = self.expr_list()
+                self.eat(TokenType.GROUP, ')')
+                value = FunctionCall(value, arguments)
+            if self.token.value == '[':
+                self.eat(TokenType.GROUP)
+                arguments = self.expr_list()
+                self.eat(TokenType.GROUP, ']')
+                value = ItemAccess(value, arguments)
+        return value
+
+    def atom(self):
+        token = self.token
+
+        if token.value == "new":
+            self.eat(TokenType.KEYWORD)
+            type = self.atom()
+            self.eat(TokenType.GROUP, '(')
+            arguments = self.expr()
+            self.eat(TokenType.GROUP, ')')
+            return ConstructorCall(type, arguments)
+
+        if token.type == TokenType.NUMBER:
+            self.eat(TokenType.NUMBER)
+            return Int(token.value) if type(token.value) is int else Float(token.value)
+
+        if token.type == TokenType.NAME:
+            self.eat(TokenType.NAME)
+            return Variable(token.value)
+
+        if token.type == TokenType.STRING:
+            self.eat(TokenType.STRING)
+            return String(token.value)
+
+        if token.type == TokenType.GROUP:
+            if token.value == '(':
+                self.eat(TokenType.GROUP)
+                start_pos = self.pos
+                value = self.expr()
+                if self.token.type == TokenType.COMMA:
+                    self.pos = start_pos
+                    value = ConstructorCall(Variable("tuple"), self.expr_list())
+                self.eat(TokenType.GROUP, ')')
+                return value
+
+            if token.value == '[':
+                self.eat(TokenType.GROUP)
+                start_pos = self.pos
+                value = self.expr()
+                if self.token.type == TokenType.COMMA:
+                    self.pos = start_pos
+                    value = ConstructorCall(Variable("array", self.expr_list()))
+                elif self.token.type == TokenType.COMMA:
+                    
+                self.eat(TokenType.GROUP, ']')
