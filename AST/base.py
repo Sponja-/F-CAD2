@@ -14,11 +14,11 @@ class Object:
         self.is_return = False
         self.is_except = False
 
-    def call(self, name: str, scope_path: tuple = (), args: List[Type["Object"]] = []) -> Type["Object"]:
-        return MemberCall(self, name, [Constant(arg) for arg in args], none_object).eval(scope_path)
+    def call(self, name: str, args: List[Type["Object"]] = []) -> Type["Object"]:
+        return MemberCall(Constant(self), name, [Constant(arg) for arg in args], Constant(none_object)).eval(())
 
     def __getitem__(self, index):
-        return MemberAccess(Constant(self), Constant(forward_declarations["string"](index))).eval(())
+        return MemberAccess(Constant(self), index).eval(())
 
     def __contains__(self, index):
         return index in self.attributes or index in self.type
@@ -64,7 +64,7 @@ class Scope:
     scope_n = 0
 
     def __init__(self,
-                 elements: Dict[str, Union[Type[Object]], Type[IComputable], str] = {}):
+                 elements: Dict[str, Union[Type[Object], Type[IComputable], str]] = {}):
         self.elements = dict(elements)
 
     def __getitem__(self, path: tuple) -> Type[Object]:
@@ -221,8 +221,11 @@ class Class(IPrimitiveType):
                 (self.parent is not None and index in self.parent))
 
     def __getitem__(self, index: str) -> "Function":
-        return self.methods.get(index, self.parent[index])
+        return self.methods.get(index, self.parent[index] if self.parent is not None else None)
         return None
+
+    def __str__(self):
+        return self.name
 
 
 class ClassCreate(IComputable):
@@ -230,7 +233,7 @@ class ClassCreate(IComputable):
                  name: str,
                  methods: Dict[str, Type[IComputable]],
                  statics: Dict[str, Type[IComputable]],
-                 parent_name: Optional[str]) -> None:
+                 parent_name: Optional[str] = None) -> None:
         self.name = name
         self.methods = methods
         self.statics = statics
@@ -238,14 +241,14 @@ class ClassCreate(IComputable):
 
     def eval(self, scope_path: tuple) -> Class:
         return ConstructorCall(Constant(class_class), [
-            Constant(self.name),
+            Constant(forward_declarations["string"](self.name)),
             Constant(forward_declarations["dict"](
                 {forward_declarations["string"](name): value.eval(scope_path) for name, value in self.methods.items()}
             )),
             Constant(forward_declarations["dict"](
                 {forward_declarations["string"](name): value.eval(scope_path) for name, value in self.statics.items()}
             )),
-            Variable(self.parent_name) if self.parent is not None else none_class]).eval(scope_path)
+            Variable(self.parent_name) if self.parent_name is not None else none_class], Constant(none_object)).eval(scope_path)
 
 
 def class_constructor(this: Class, name, methods, statics, parent):
@@ -266,6 +269,7 @@ class ConstructorCall(IComputable):
                  kwargs) -> None:
         self.type = type
         self.args = args
+        self.kwargs = kwargs
 
     def eval(self, scope_path: tuple) -> Type[Object]:
         t = self.type.eval(scope_path)
@@ -276,11 +280,13 @@ class ConstructorCall(IComputable):
 
         if "constructor" in new_obj.type:
             constructor = MemberAccess(Constant(new_obj), "constructor").eval(())
-            new_locals = create_locals(constructor, [arg.eval(scope_path) for arg in self.args])
+            new_locals = create_locals(constructor,
+                                       [arg.eval(scope_path) for arg in self.args],
+                                       self.kwargs.eval(scope_path), object=new_obj)
             with CreateScope(constructor.parent_scope, new_locals) as new_path:
                 constructor.operation.eval(new_path)
                 new_obj.is_return = False
-
+                return new_obj
         return new_obj
 
 
@@ -310,7 +316,11 @@ class MemberCall(IComputable):
 
     def eval(self, scope_path: tuple) -> Type[Object]:
         obj = self.object.eval(scope_path)
-        f = obj.attributes[self.name]
+        f = obj[self.name]
+
+        if f is None:
+            raise IndexError
+
         if type(f) is not Function:
             new_locals = create_locals(MemberAccess(Constant(f), "#call").eval(scope_path),
                                        [arg.eval(scope_path) for arg in self.args],
@@ -354,10 +364,6 @@ def function_copy(this: Function):
                     this.parent_scope,
                     this.arg_names,
                     this.var_arg_name)
-
-
-def function_call(this: Function, args: List[Object]):
-    return FunctionCall(this, [Constant(arg) for arg in args]).eval(())
 
 
 class FunctionCreate(IComputable):

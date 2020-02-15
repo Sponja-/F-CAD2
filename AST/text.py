@@ -2,7 +2,7 @@ from .base import IPrimitiveType, Class, to_primitive_function
 from .base import register_primitive, Object, none_object, Constant
 from .logic import Bool
 from .numerical import Int, Float
-from .exceptions import Raise, StopIteration
+from .exceptions import RaiseStatement, StopIteration
 from typing import Type
 
 
@@ -79,7 +79,7 @@ def string_next(this: String) -> String:
         this.iter_current += 1
         return result
     else:
-        return Raise(Constant(StopIteration)).exec(())
+        return RaiseStatement(Constant(StopIteration)).exec(())
 
 
 def static_string_call(this: Class, arg: Type[Object]) -> String:

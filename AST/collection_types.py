@@ -1,11 +1,11 @@
 from .base import Class, IPrimitiveType, Object, forward_declarations
 from .base import NoneType, to_primitive_function, register_primitive
 from .base import OperatorCall, Constant, FunctionCall, IComputable
-from .base import UnpackOperation, Variable, ConstructorCall, unpack
+from .base import UnpackOperation, Variable, ConstructorCall
 from .base import none_object, IAssignable
 from .logic import Bool
 from .numerical import Int
-from .exceptions import Raise, StopIteration
+from .exceptions import RaiseStatement, StopIteration
 from .flow_control import ListComprehension
 from typing import List, Type, Dict
 
@@ -68,7 +68,7 @@ def tuple_next(this: Tuple) -> Type[Object]:
         this.iter_current += 1
         return result
     else:
-        return Raise(Constant(StopIteration)).exec(())
+        return RaiseStatement(Constant(StopIteration)).exec(())
 
 
 def tuple_to_string(this: Tuple):
@@ -174,7 +174,7 @@ def array_next(this: Array) -> Array:
         this.iter_current += 1
         return result
     else:
-        return Raise(Constant(StopIteration)).exec(())
+        return RaiseStatement(Constant(StopIteration)).exec(())
 
 
 def array_to_string(this: Array):
