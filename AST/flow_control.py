@@ -122,9 +122,9 @@ class ContainsOperation(IComputable):
 
     def eval(self, scope_path: tuple) -> Bool:
         iter = self.iterable.eval(scope_path)
-        if "#contains" in iter.attributes:
+        if "#contains" in iter:
             return Bool(try_bool(FunctionCall(iter["#contains"], [self.value]).eval(scope_path)).value)
-        elif "#iter" in iter.attributes:
+        elif "#iter" in iter:
             val = self.value.eval(scope_path)
             iterator = iter.call("#iter")
             for elem in iterator:

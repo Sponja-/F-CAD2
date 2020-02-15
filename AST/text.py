@@ -69,7 +69,7 @@ def string_hash(this: String) -> Int:
 
 
 def string_iter(this: String) -> String:
-    this.iter_current
+    this.iter_current = 0
     return this
 
 

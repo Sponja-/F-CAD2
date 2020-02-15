@@ -1,4 +1,4 @@
-from AST.base import ClassCreate, FunctionCreate, Assignment, Variable
+from AST.base import ClassCreate, FunctionCreate, Assignment, Variable, MemberCall
 from AST.base import IAssignable, FunctionCall, OperatorCall, MemberAccess
 from AST.base import ConstructorCall, UnpackOperation, Constant, Destructuring
 from AST.statements import StatementList, Statement, ReturnStatement
@@ -339,7 +339,11 @@ class Parser:
             if self.token.value == '(':
                 self.eat(TokenType.GROUP)
                 args, kwargs = self.expr_list(with_kwargs=True)
-                value = FunctionCall(value, args, kwargs)
+                self.eat(TokenType.GROUP, ')')
+                if isinstance(value, MemberAccess):
+                    value = MemberCall(value.object, value.name, args, kwargs)
+                else:
+                    value = FunctionCall(value, args, kwargs)
             if self.token.value == '[':
                 self.eat(TokenType.GROUP)
                 arguments = self.expr_list()

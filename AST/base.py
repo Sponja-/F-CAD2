@@ -10,15 +10,18 @@ class_class_created = False
 class Object:
     def __init__(self, type: "Class") -> None:
         self.type = type
-        self.attributes = {name: get_bound_function(method, self) for name, method in self.type.object_methods().items()}
+        self.attributes = {}
         self.is_return = False
         self.is_except = False
 
     def call(self, name: str, scope_path: tuple = (), args: List[Type["Object"]] = []) -> Type["Object"]:
-        return FunctionCall(Constant(self.attributes[name]), [Constant(arg) for arg in args]).eval(scope_path)
+        return MemberCall(self, name, [Constant(arg) for arg in args], none_object).eval(scope_path)
 
     def __getitem__(self, index):
-        return self.attributes[index]
+        return MemberAccess(Constant(self), Constant(forward_declarations["string"](index))).eval(())
+
+    def __contains__(self, index):
+        return index in self.attributes or index in self.type
 
     def __hash__(self):
         return self.call("#hash").value
@@ -35,14 +38,6 @@ class Object:
             raise StopIteration
         else:
             return result
-
-
-def get_bound_function(f, obj):
-    return Function(f.operation,
-                    f.parent_scope,
-                    f.arg_names,
-                    f.var_arg_name,
-                    bound_object=obj)
 
 
 class IComputable(ABC):
@@ -221,16 +216,13 @@ class Class(IPrimitiveType):
         methods.update(self.methods)
         return methods
 
-    def has_method(self, name: str) -> bool:
-        return (name in self.methods or
-                (self.parent is not None and self.parent.has_method(name)))
+    def __contains__(self, index: str) -> bool:
+        return (index in self.methods or
+                (self.parent is not None and index in self.parent))
 
-    def get_method(self, name: str) -> "Function":
-        if name in self.methods:
-            return self.methods[name]
-        elif self.parent is not None:
-            return self.parent.get_method(name)
-        raise f"Class {self.name} has no method \"{name}\""
+    def __getitem__(self, index: str) -> "Function":
+        return self.methods.get(index, self.parent[index])
+        return None
 
 
 class ClassCreate(IComputable):
@@ -282,11 +274,9 @@ class ConstructorCall(IComputable):
         else:
             new_obj = Object(t)
 
-        if "constructor" in new_obj.attributes:
-            constructor = new_obj.attributes["constructor"]
-
+        if "constructor" in new_obj.type:
+            constructor = MemberAccess(Constant(new_obj), "constructor").eval(())
             new_locals = create_locals(constructor, [arg.eval(scope_path) for arg in self.args])
-
             with CreateScope(constructor.parent_scope, new_locals) as new_path:
                 constructor.operation.eval(new_path)
                 new_obj.is_return = False
@@ -300,19 +290,48 @@ class MemberAccess(IComputable, IAssignable):
         self.name = name
 
     def eval(self, scope_path: tuple) -> Type[Object]:
-        return self.object.eval(scope_path).attributes[self.name]
+        obj = self.object.eval(scope_path)
+        return obj.attributes.get(self.name, obj.type[self.name])
 
     def set_value(self, scope_path: tuple, value: Object) -> None:
         self.object.eval(scope_path).attributes[self.name] = value
+
+
+class MemberCall(IComputable):
+    def __init__(self,
+                 object: Type[IComputable],
+                 name: str,
+                 args: Iterable[IComputable],
+                 kwargs):
+        self.object = object
+        self.name = name
+        self.args = args
+        self.kwargs = kwargs
+
+    def eval(self, scope_path: tuple) -> Type[Object]:
+        obj = self.object.eval(scope_path)
+        f = obj.attributes[self.name]
+        if type(f) is not Function:
+            new_locals = create_locals(MemberAccess(Constant(f), "#call").eval(scope_path),
+                                       [arg.eval(scope_path) for arg in self.args],
+                                       self.kwargs.eval(scope_path), object=f)
+        else:
+            new_locals = create_locals(f, [arg.eval(scope_path) for arg in self.args],
+                                       self.kwargs.eval(scope_path), object=obj)
+
+        with CreateScope(f.parent_scope, new_locals) as new_path:
+            result = f.operation.eval(new_path)
+            result.is_return = False
+            return result
 
 
 class Destructuring(IAssignable):
     def __init__(self, names: List[str]):
         self.names = names
 
-    def set_value(self, scope_path: tuple, value: Object):
+    def set_value(self, scope_path: tuple, value: Type[Object]):
         for name in self.names:
-            Variable(name).set_value(scope_path, value.attributes[name])
+            Variable(name).set_value(scope_path, MemberAccess(Constant(value), name).eval(scope_path))
 
 
 class Function(IPrimitiveType):  # TODO: Optional/default arguments
@@ -326,7 +345,7 @@ class Function(IPrimitiveType):  # TODO: Optional/default arguments
         self.parent_scope = parent_scope
         self.arg_names = arg_names
         self.var_arg_name = var_arg_name
-        self.bound_object = kwargs.get("bound_object", None)
+        self.bound_object = kwargs.get("bound", None)
         super().__init__(function_class)
 
 
@@ -357,7 +376,7 @@ class FunctionCreate(IComputable):
                         self.var_arg_name)
 
 
-def create_locals(func, args: List[Type[Object]], kwargs: Dict[str, Type[Object]]):  # TODO: Add parent variable
+def create_locals(func: Function, args: List[Type[Object]], kwargs: Dict[str, Type[Object]], **options):  # TODO: Add parent variable
     unpacked_args = []
     for obj in args:
         if type(obj) is list:
@@ -369,8 +388,7 @@ def create_locals(func, args: List[Type[Object]], kwargs: Dict[str, Type[Object]
     new_locals = {name: arg for name, arg in zip(func.arg_names, unpacked_args)}
     if func.var_arg_name is not None:
         new_locals[func.var_arg_name] = forward_declarations["array"](unpacked_args[len(func.arg_names):])
-    if func.bound_object is not None:
-        new_locals["this"] = func.bound_object
+    new_locals["this"] = func.bound_object if func.bound_object is not None else options.get("object", none_object)
     new_locals["#kwargs"] = forward_declarations["dict"](kwargs)
     return new_locals
 
@@ -387,9 +405,13 @@ class FunctionCall(IComputable):
     def eval(self, scope_path: tuple) -> Type[Object]:
         f = self.function.eval(scope_path)
         if type(f) is not Function:
-            f = f.attributes["#call"]
+            new_locals = create_locals(MemberAccess(Constant(f), "#call").eval(scope_path),
+                                       [arg.eval(scope_path) for arg in self.args],
+                                       self.kwargs.eval(scope_path), object=f)
+        else:
+            new_locals = create_locals(f, [arg.eval(scope_path) for arg in self.args],
+                                       self.kwargs.eval(scope_path))
 
-        new_locals = create_locals(f, [arg.eval(scope_path) for arg in self.args], self.kwargs.eval(scope_path))
         with CreateScope(f.parent_scope, new_locals) as new_path:
             result = f.operation.eval(new_path)
             result.is_return = False
@@ -397,15 +419,15 @@ class FunctionCall(IComputable):
 
 
 def best_fitting_method(operator_name, obj, pos, length):
-    if obj.type.has_method(operator_name + f"_{str(pos)}"):
-        return (obj.type.get_method(operator_name + f"_{str(pos)}"), True)
-    elif pos == 0 and length == 2 and obj.type.has_method(operator_name + "_left"):
-        return (obj.type.get_method(operator_name + "_left"), True)
-    elif pos == 1 and length == 2 and obj.type.has_method(operator_name + "_right"):
-        return (obj.type.get_method(operator_name + "_left"), True)
+    if operator_name + f"_{str(pos)}" in obj.type:
+        return (obj.type[operator_name + f"_{str(pos)}"], True)
+    elif pos == 0 and length == 2 and operator_name + "_left" in obj.type:
+        return (obj.type[operator_name + "_left"], True)
+    elif pos == 1 and length == 2 and operator_name + "_right" in obj.type:
+        return (obj.type[operator_name + "_left"], True)
 
-    if obj.type.has_method(operator_name):
-        return (obj.type.get_method(operator_name), False)
+    if operator_name in obj.type:
+        return (obj.type[operator_name], False)
 
     return None
 
@@ -413,6 +435,7 @@ def best_fitting_method(operator_name, obj, pos, length):
 def resolve_overload(operator_name, objects):
     best_method = None
     position = 0
+    owner = None
     is_prim = True
     has_pos = False
     for i, obj in enumerate(objects):  # First pass checks non prim for correct positions
@@ -425,8 +448,9 @@ def resolve_overload(operator_name, objects):
                is_prim and not has_pos and with_pos):
                 best_method = method
                 position = i
+                owner = obj
 
-    return (best_method, position)
+    return (best_method, position, owner)
 
 
 class OperatorCall(IComputable):
@@ -443,7 +467,7 @@ class OperatorCall(IComputable):
             else:
                 objs.append(obj)
 
-        method, position = resolve_overload(self.name, objs)
+        method, position, owner = resolve_overload(self.name, objs)
 
         if method is None:
             raise f"Cant perform {self.name} on objects of types\
@@ -451,7 +475,7 @@ class OperatorCall(IComputable):
 
         del objs[position]
 
-        new_locals = create_locals(method, objs, {})
+        new_locals = create_locals(method, objs, forward_declarations["dict"]({}), object=owner)
 
         with CreateScope(method.parent_scope, new_locals) as new_path:
             result = method.operation.eval(new_path)

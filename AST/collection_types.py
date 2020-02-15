@@ -214,7 +214,7 @@ class Dictionary(IPrimitiveType):
 def dict_constructor(this: Dictionary, arg: Type[Object]) -> None:
     if arg.type.name == "dictionary":
         this.elements = arg.elements
-    elif "#iter" in arg.attributes:
+    elif "#iter" in arg:
         result = {}
         for value in arg:
             pair = []

@@ -12,7 +12,7 @@ class Bool(IPrimitiveType):
 def try_bool(obj: Type[Object]):
     if type(obj) is Bool:
         return obj
-    if "#to_bool" in obj.attributes:
+    if "#to_bool" in obj:
         return obj.call("#to_bool")
     raise f"Could not convert {obj} to bool"
 
