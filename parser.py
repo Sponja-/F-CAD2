@@ -194,8 +194,9 @@ class Parser:
         if self.token.value == "function":
             self.eat(TokenType.KEYWORD)
             name = self.eat(TokenType.NAME)
-            self.eat(TokenType.GROUP, '(')
             var_arg_name = None
+            default_args = []
+            self.eat(TokenType.GROUP, '(')
             if self.token.type == TokenType.ELLIPSIS:
                 names = []
                 var_arg_name = self.eat(TokenType.NAME)
@@ -209,6 +210,9 @@ class Parser:
                         break
                     else:
                         names.append(self.eat(TokenType.NAME))
+                        if self.token.value == '=':
+                            self.eat(TokenType.ASSIGNMENT)
+                            default_args.append(self.expr())
             self.eat(TokenType.GROUP, ')')
             body = self.statement_block()
             return Assignment(Variable(name), FunctionCreate(body, names, var_arg_name))
@@ -217,7 +221,7 @@ class Parser:
     def assignment(self):
         var = self.list_comp_expr()
         if self.token.value == '=' and isinstance(var, IAssignable):
-            self.eat(TokenType.OPERATOR)
+            self.eat(TokenType.ASSIGNMENT)
             expr = self.assignment()
             return Assignment(var, expr)
         return var

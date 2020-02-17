@@ -355,6 +355,7 @@ class Function(IPrimitiveType):  # TODO: Optional/default arguments
         self.parent_scope = parent_scope
         self.arg_names = arg_names
         self.var_arg_name = var_arg_name
+        self.default_args = kwargs.get("default_args", [])
         self.bound_object = kwargs.get("bound", None)
         super().__init__(function_class)
 
@@ -370,16 +371,19 @@ class FunctionCreate(IComputable):
     def __init__(self,
                  operation: Type[IComputable],
                  arg_names: Iterable[str],
-                 var_arg_name: Optional[str] = None):
+                 var_arg_name: Optional[str] = None,
+                 **kwargs):
         self.operation = operation
         self.arg_names = arg_names
         self.var_arg_name = var_arg_name
+        self.default_args = kwargs.get("default_args", [])
 
     def eval(self, scope_path: tuple) -> Function:
         return Function(self.operation,
                         scope_path,
                         self.arg_names,
-                        self.var_arg_name)
+                        self.var_arg_name,
+                        self.default_args)
 
 
 def create_locals(func: Function, args: List[Type[Object]], kwargs: Dict[str, Type[Object]], **options):  # TODO: Add parent variable
@@ -392,9 +396,16 @@ def create_locals(func: Function, args: List[Type[Object]], kwargs: Dict[str, Ty
         else:
             unpacked_args.append(obj)
     new_locals = {name: arg for name, arg in zip(func.arg_names, unpacked_args)}
-    if func.var_arg_name is not None:
+    if len(func.arg_names) > len(unpacked_args):
+        assert(len(func.default_args) + len(unpacked_args) >= len(func.arg_names))
+        new_locals.update({name: arg for name, arg in
+                           zip(func.arg_names[-1:len(unpacked_args) - 1:-1],
+                               func.default_args[:len(func.arg_names) - len(unpacked_args)])})
+    elif len(func.arg_names) < len(unpacked_args) and func.var_arg_name is not None:
         new_locals[func.var_arg_name] = forward_declarations["array"](unpacked_args[len(func.arg_names):])
-    new_locals["this"] = func.bound_object if func.bound_object is not None else options.get("object", none_object)
+    new_locals["this"] = (func.bound_object
+                          if func.bound_object is not None
+                          else options.get("object", none_object))
     new_locals["#kwargs"] = forward_declarations["dict"](kwargs)
     return new_locals
 
@@ -452,6 +463,10 @@ def resolve_overload(operator_name, objects):
                is_prim and not primitive or
                not is_prim and not primitive and not has_pos and with_pos or
                is_prim and not has_pos and with_pos):
+                if with_pos:
+                    has_pos = True
+                if not primitive:
+                    is_prim = False
                 best_method = method
                 position = i
                 owner = obj
