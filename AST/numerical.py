@@ -67,25 +67,25 @@ def static_float_call(this: Class, arg: Type[Object]) -> Float:
 
 numerical_methods = {
     "#add":                 (lambda x, y: x + y),
-    "#substract_left":      (lambda x, y: x - y),
+    "#substract_left":      (lambda x, y: y - x),
     "#multiply":            (lambda x, y: x * y),
-    "#divide_left":         (lambda x, y: x / y),
-    "#modulo_left":         (lambda x, y: x % y),
-    "#exponent_left":       (lambda x, y: x ** y),
+    "#divide_left":         (lambda x, y: y / x),
+    "#modulo_left":         (lambda x, y: y % x),
+    "#exponent_left":       (lambda x, y: y ** x),
     "#equal":               (lambda x, y: x == y),
     "#not_equal":           (lambda x, y: x != y),
-    "#lesser_left":         (lambda x, y: x < y),
-    "#lesser_equal_left":   (lambda x, y: x <= y),
-    "#greater_left":        (lambda x, y: x > y),
-    "#greater_equal_left":  (lambda x, y: x >= y),
-    "#substract_right":     (lambda x, y: y - x),
-    "#divide_right":        (lambda x, y: y / x),
-    "#modulo_right":        (lambda x, y: y % x),
-    "#exponent_right":      (lambda x, y: y ** x),
-    "#lesser_right":        (lambda x, y: y < x),
-    "#lesser_equal_right":  (lambda x, y: y <= x),
-    "#greater_right":       (lambda x, y: y > x),
-    "#greater_equal_right": (lambda x, y: y >= x)
+    "#lesser_left":         (lambda x, y: x > y),
+    "#lesser_equal_left":   (lambda x, y: x >= y),
+    "#greater_left":        (lambda x, y: x < y),
+    "#greater_equal_left":  (lambda x, y: x <= y),
+    "#substract_right":     (lambda x, y: x - y),
+    "#divide_right":        (lambda x, y: x / y),
+    "#modulo_right":        (lambda x, y: x % y),
+    "#exponent_right":      (lambda x, y: x ** y),
+    "#lesser_right":        (lambda x, y: y > x),
+    "#lesser_equal_right":  (lambda x, y: y >= x),
+    "#greater_right":       (lambda x, y: y < x),
+    "#greater_equal_right": (lambda x, y: y <= x)
 
 }
 

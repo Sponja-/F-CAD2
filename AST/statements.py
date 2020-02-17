@@ -30,10 +30,8 @@ class ExprStatement(IStatement):
 
 class StatementList(IStatement):
     def __init__(self,
-                 statements: Iterable[Type[IStatement]],
-                 scoped: bool = True) -> None:
+                 statements: Iterable[Type[IStatement]]) -> None:
         self.statements = statements
-        self.scoped = scoped
 
     def eval(self, scope_path: tuple) -> Type[Object]:
         ret_val = none_object

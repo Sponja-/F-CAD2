@@ -11,7 +11,7 @@ from typing import List, Type, Dict
 
 
 class Tuple(IPrimitiveType):
-    def __init__(self, elements) -> None:
+    def __init__(self, elements=()) -> None:
         self.elements = tuple(elements)
         self.iter_current = 0
         super().__init__(tuple_class)
@@ -97,7 +97,7 @@ tuple_class = Class("tuple", {
 
 
 class Array(IPrimitiveType):
-    def __init__(self, elements: List[Type[Object]]) -> None:
+    def __init__(self, elements: List[Type[Object]] = []) -> None:
         self.elements = list(elements)
         self.iter_current = 0
         super().__init__(array_class)
@@ -206,7 +206,7 @@ array_class = Class("array", {
 
 
 class Dictionary(IPrimitiveType):
-    def __init__(self, elements: Dict[Type[Object], Type[Object]]):
+    def __init__(self, elements: Dict[Type[Object], Type[Object]] = {}):
         self.elements = elements
         super().__init__(dictionary_class)
 
@@ -328,33 +328,37 @@ class ItemAccess(IComputable):
 
 class ArrayConstant(IComputable, IAssignable):
     def __init__(self,
-                 arguments: Type[IComputable]) -> None:
+                 arguments: List[Type[IComputable]]) -> None:
         self.arguments = arguments
 
     def eval(self, scope_path: tuple) -> Type[Object]:
         if len(self.arguments) == 1 and isinstance(self.arguments[0], ListComprehension):
-            return ConstructorCall(Variable("array"), UnpackOperation(self.arguments[0])).eval(scope_path)
-        return ConstructorCall(Variable("array"), self.arguments).eval(scope_path)
+            return ConstructorCall(Variable("array"),
+                                   UnpackOperation(self.arguments[0]),
+                                   Constant(none_object)).eval(scope_path)
+        return ConstructorCall(Variable("array"),
+                               self.arguments,
+                               Constant(none_object)).eval(scope_path)
 
     def set_value(self, scope_path: tuple, value) -> Type[Object]:
         iterator = iter(value)
         for arg in self.arguments[:-1]:
             arg.set_value(scope_path, next(iterator))
-        if isinstance(self.arguments[:-1], UnpackOperation):
-            self.arguments[:-1].value.set_value(scope_path, Tuple(iterator))
+        if isinstance(self.arguments[-1], UnpackOperation):
+            self.arguments[-1].value.set_value(scope_path, Tuple(iterator))
         else:
-            self.arguments[:-1].set_value(scope_path, next(iterator))
+            self.arguments[-1].set_value(scope_path, next(iterator))
 
 
 class TupleConstant(IComputable):
     def __init__(self,
-                 arguments: Type[IComputable]) -> None:
+                 arguments: List[Type[IComputable]]) -> None:
         self.arguments = arguments
 
     def eval(self, scope_path: tuple) -> Type[Object]:
         if len(self.arguments) == 1 and isinstance(self.arguments[0], ListComprehension):
             return self.arguments[0].eval(scope_path)
-        return ConstructorCall(Variable("tuple"), self.arguments).eval(scope_path)
+        return ConstructorCall(Variable("tuple"), self.argumentsm, Constant(none_object)).eval(scope_path)
 
 
 class DictionaryConstant(IComputable):

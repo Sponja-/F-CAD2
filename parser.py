@@ -315,6 +315,8 @@ class Parser:
         with_kwargs = kwargs.get("with_kwargs", False)
         start_symbol = self.token.value
         result = [self.expr()]
+        if result[0] is None:
+            return []
         kwarg_lines = []
         while self.token.type == TokenType.COMMA:
             if (with_kwargs and
@@ -322,7 +324,7 @@ class Parser:
                isinstance(result[-1].object, Variable) and
                start_symbol != '('):
                 kv_pair = result.pop()
-                kwarg_lines.append(String(kv_pair.object.name), kv_pair.value)
+                kwarg_lines.append(Constant(String(kv_pair.object.name)), kv_pair.value)
             self.eat(TokenType.COMMA)
             start_symbol = self.token.value
             result.append(self.expr())

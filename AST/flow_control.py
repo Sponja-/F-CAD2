@@ -78,12 +78,13 @@ class WhileStatement(IStatement):
     def eval(self, scope_path: tuple) -> Type[Object]:
         while try_bool(self.condition.eval(scope_path)).value:
             result = self.body.exec(scope_path)
-            if type(result) is BreakMarker:
-                break
-            if type(result) is ContinueMarker:
-                continue
-            if result.is_return or result.is_except:
-                return result
+            if result is not None:
+                if type(result) is BreakMarker:
+                    break
+                if type(result) is ContinueMarker:
+                    continue
+                if result.is_return or result.is_except:
+                    return result
         return none_object
 
 
@@ -104,12 +105,13 @@ class ForStatement(IStatement):
             for name, val in zip(self.iter_vars, values):
                 Variable(name).set_value(scope_path, val)
             result = self.body.exec(scope_path)
-            if type(result) is BreakMarker:
-                break
-            if type(result) is ContinueMarker:
-                continue
-            if result.is_return or result.is_except:
-                return result
+            if result is not None:
+                if type(result) is BreakMarker:
+                    break
+                if type(result) is ContinueMarker:
+                    continue
+                if result.is_return or result.is_except:
+                    return result
         return none_object
 
 
