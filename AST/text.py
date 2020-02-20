@@ -1,5 +1,5 @@
 from .base import IPrimitiveType, Class, to_primitive_function
-from .base import register_primitive, Object, none_object, Constant
+from .base import register_class, register_function,  Object, Constant
 from .logic import Bool
 from .numerical import Int, Float
 from .exceptions import RaiseStatement, StopIteration
@@ -18,7 +18,6 @@ class String(IPrimitiveType):
 
 def string_constructor(this: String, arg: Type[Object]):
     this.value = arg.call("#to_string").value
-    return none_object
 
 
 def string_get_item(this: String, index: Int) -> String:
@@ -104,4 +103,11 @@ string_class = Class("string", {
     "#call":            to_primitive_function(static_string_call)
 })
 
-register_primitive("string", String, string_class)
+register_class("string", String, string_class)
+
+
+def print_function(value):
+    print(repr(value))
+
+
+register_function("print", print_function)

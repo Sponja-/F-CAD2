@@ -1,5 +1,5 @@
-from .base import Class, forward_declarations, register_primitive
-from .base import to_primitive_function, IPrimitiveType, Object, none_object
+from .base import Class, forward_declarations, register_class
+from .base import to_primitive_function, IPrimitiveType, Object, create_none
 from .logic import Bool
 from typing import Union, Callable, Type
 from functools import wraps
@@ -49,12 +49,12 @@ def numerical_to_string(this: Type[Numerical]):
 
 def int_constructor(this: Int, arg: Type[Object]) -> Type[Object]:
     this.value = int(arg.call("#to_int").value)
-    return none_object
+    return create_none()
 
 
 def float_constructor(this: Int, arg: Type[Object]) -> Type[Object]:
     this.value = float(arg.call("#to_float").value)
-    return none_object
+    return create_none()
 
 
 def static_int_call(this: Class, arg: Type[Object]) -> Int:
@@ -113,5 +113,5 @@ float_class = Class("float", float_methods, {
     "#call":        to_primitive_function(static_float_call)
 })
 
-register_primitive("int", Int, int_class)
-register_primitive("float", Float, float_class)
+register_class("int", Int, int_class)
+register_class("float", Float, float_class)

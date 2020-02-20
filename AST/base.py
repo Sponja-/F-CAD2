@@ -15,7 +15,7 @@ class Object:
         self.is_except = False
 
     def call(self, name: str, args: List[Type["Object"]] = []) -> Type["Object"]:
-        return MemberCall(Constant(self), name, [Constant(arg) for arg in args], Constant(none_object)).eval(())
+        return MemberCall(Constant(self), name, [Constant(arg) for arg in args], Constant(create_none())).eval(())
 
     def __getitem__(self, index):
         return MemberAccess(Constant(self), index).eval(())
@@ -150,7 +150,7 @@ class GlobalDeclare(IComputable):
 
     def eval(self, scope_path: tuple) -> Type[Object]:
         Variable(self.name).set_value(scope_path, "global")
-        return none_object
+        return create_none()
 
 
 class IPrimitiveType(Object):
@@ -164,7 +164,11 @@ class PrimitiveCall(IComputable):
         self.function = function
 
     def eval(self, scope_path: tuple) -> Type[Object]:
-        return self.function(scope_path)
+        value = self.function(scope_path)
+        if value is None:
+            return create_none()
+        else:
+            return value
 
 
 def to_primitive_function(func: Callable) -> "Function":
@@ -248,7 +252,7 @@ class ClassCreate(IComputable):
             Constant(forward_declarations["dict"](
                 {forward_declarations["string"](name): value.eval(scope_path) for name, value in self.statics.items()}
             )),
-            Variable(self.parent_name) if self.parent_name is not None else none_class], Constant(none_object)).eval(scope_path)
+            Variable(self.parent_name) if self.parent_name is not None else none_class], Constant(create_none())).eval(scope_path)
 
 
 def class_constructor(this: Class, name, methods, statics, parent):
@@ -266,10 +270,10 @@ class ConstructorCall(IComputable):
     def __init__(self,
                  type: IComputable,
                  args: Iterable[IComputable],
-                 kwargs) -> None:
+                 kwargs=None) -> None:
         self.type = type
         self.args = args
-        self.kwargs = kwargs
+        self.kwargs = NoneType() if kwargs is None else kwargs
 
     def eval(self, scope_path: tuple) -> Type[Object]:
         t = self.type.eval(scope_path)
@@ -405,7 +409,7 @@ def create_locals(func: Function, args: List[Type[Object]], kwargs: Dict[str, Ty
         new_locals[func.var_arg_name] = forward_declarations["array"](unpacked_args[len(func.arg_names):])
     new_locals["this"] = (func.bound_object
                           if func.bound_object is not None
-                          else options.get("object", none_object))
+                          else options.get("object", create_none()))
     new_locals["#kwargs"] = forward_declarations["dict"](kwargs)
     return new_locals
 
@@ -525,6 +529,10 @@ def none_to_float(this):
     return forward_declarations["float"](0.0)
 
 
+def create_none():
+    return ConstructorCall(none_class, []).eval(())
+
+
 class UnpackOperation(IComputable):
     def __init__(self, value: Type[IComputable]) -> None:
         self.value = value
@@ -540,9 +548,13 @@ def unpack(obj: Type[Object]):
         return list(obj)
 
 
-def register_primitive(name: str, cls, type: Class) -> None:
+def register_class(name: str, cls, type: Class) -> None:
     Variable.table[(name,)] = type
     forward_declarations[name] = cls
+
+
+def register_function(name, func):
+    Variable.table[(name,)] = func
 
 
 class_class = Class("class", {})
@@ -554,11 +566,8 @@ Object.__init__(class_class, class_class)
 
 
 none_class = Class("NoneType", {})
-none_object = NoneType()
 
 
-register_primitive("class", Class, class_class)
-register_primitive("function", Function, function_class)
-register_primitive("NoneType", NoneType, none_class)
-
-Assignment(Variable("none"), Constant(none_object)).eval(())
+register_class("class", Class, class_class)
+register_class("function", Function, function_class)
+register_class("NoneType", NoneType, none_class)

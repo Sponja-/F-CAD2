@@ -183,6 +183,10 @@ class Tokenizer:
                 self.advance(end)
                 return result
 
+            if self.char == '=' and self.next_char == '>':
+                self.advance(2)
+                return Token(TokenType.ARROW, '=>')
+
             if self.char == '=':
                 self.advance()
                 return Token(TokenType.ASSIGNMENT, '=')

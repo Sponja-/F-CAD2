@@ -1,10 +1,10 @@
-from .base import Object, IComputable, IPrimitiveType, Class, to_primitive_function
-from .base import Variable, none_object, register_primitive
-from .statements import IStatement, StatementList
+from .base import Object, IComputable, IPrimitiveType, Class, ConstructorCall
+from .base import Variable, create_none, register_class
+from .statements import StatementList
 from typing import Type, Optional
 
 
-class RaiseStatement(IStatement):
+class RaiseStatement(IComputable):
     def __init__(self, value: IComputable) -> None:
         self.value = value
 
@@ -14,7 +14,7 @@ class RaiseStatement(IStatement):
         return result
 
 
-class TryCatch(IStatement):
+class TryCatch(IComputable):
     def __init__(self,
                  try_body: StatementList,
                  except_name: str,
@@ -26,16 +26,16 @@ class TryCatch(IStatement):
         self.finally_body = finally_body
 
     def eval(self, scope_path: tuple) -> Type[Object]:
-        result = self.try_body.exec(scope_path)
+        result = self.try_body.eval(scope_path)
         catch_result = None
         finally_result = None
         if result.is_except:
             result.is_except = False
             Variable(self.except_name).set_value(scope_path, result)
-            catch_result = self.catch_body.exec(scope_path)
+            catch_result = self.catch_body.eval(scope_path)
         if result.finally_body is not None:
-            finally_result = self.finally_body.exec(scope_path)
-        return (catch_result or finally_result) or none_object
+            finally_result = self.finally_body.eval(scope_path)
+        return (catch_result or finally_result) or create_none()
 
 
 class StopIteration(IPrimitiveType):
@@ -43,13 +43,11 @@ class StopIteration(IPrimitiveType):
         super().__init__(StopIteration_class)
 
 
-def StopIteration_constructor(this):
-    pass
+StopIteration_class = Class("StopIteration", {}, {})
 
 
-StopIteration_class = Class("StopIteration", {
-    "constructor":     to_primitive_function(StopIteration_constructor)
-}, {})
+def raise_stop_iter():
+    return RaiseStatement(ConstructorCall(StopIteration_class, [])).eval(())
 
 
-register_primitive("StopIteration", StopIteration, StopIteration_class)
+register_class("StopIteration", StopIteration, StopIteration_class)

@@ -1,5 +1,5 @@
-from .base import Class, IPrimitiveType, forward_declarations, Object, none_object
-from .base import IComputable, to_primitive_function, register_primitive
+from .base import Class, IPrimitiveType, forward_declarations, Object, create_none
+from .base import IComputable, to_primitive_function, register_class
 from typing import Type
 
 
@@ -54,7 +54,7 @@ class NotOperation(IComputable):
 
 def bool_constructor(this: Bool, arg: Type[Object]):
     this.value = arg.call("#to_bool").eval(())
-    return none_object
+    return create_none()
 
 
 def bool_equal(this: Bool, other: Bool) -> Bool:
@@ -92,4 +92,4 @@ bool_class = Class("bool", {
     "#call":        to_primitive_function(static_bool_call)
 })
 
-register_primitive("bool", Bool, bool_class)
+register_class("bool", Bool, bool_class)

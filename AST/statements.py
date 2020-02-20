@@ -3,11 +3,7 @@ from typing import Type, Iterable
 
 
 class IStatement(IComputable):
-    def exec(self, scope_path: tuple):
-        result = self.eval(scope_path)
-        if result.is_return or result.is_except:
-            return result
-        return None
+    pass
 
 
 class ReturnStatement(IStatement):
@@ -36,8 +32,8 @@ class StatementList(IStatement):
     def eval(self, scope_path: tuple) -> Type[Object]:
         ret_val = none_object
         for statement in self.statements:
-            result = statement.exec(scope_path)
-            if result is not None:
+            result = statement.eval(scope_path)
+            if result.is_return or result.is_except:
                 ret_val = result
                 break
         return ret_val

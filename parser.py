@@ -1,6 +1,7 @@
 from AST.base import ClassCreate, FunctionCreate, Assignment, Variable, MemberCall
 from AST.base import IAssignable, FunctionCall, OperatorCall, MemberAccess
 from AST.base import ConstructorCall, UnpackOperation, Constant, Destructuring
+from AST.base import none_class
 from AST.statements import StatementList, Statement, ReturnStatement
 from AST.exceptions import RaiseStatement
 from AST.logic import NotOperation, OrOperation, AndOperation
@@ -215,7 +216,7 @@ class Parser:
                             default_args.append(self.expr())
             self.eat(TokenType.GROUP, ')')
             body = self.statement_block()
-            return Assignment(Variable(name), FunctionCreate(body, names, var_arg_name))
+            return Assignment(Variable(name), FunctionCreate(body, names, var_arg_name, default_args=reversed(default_args)))
         return self.assignment_expr()
 
     def assignment(self):
@@ -368,6 +369,10 @@ class Parser:
             self.eat(TokenType.GROUP, ')')
             return ConstructorCall(type, args, kwargs)
 
+        if token.value == "null":
+            self.eat(TokenType.KEYWORD)
+            return ConstructorCall(none_class, [])
+
         if token.type == TokenType.NUMBER:
             self.eat(TokenType.NUMBER)
             return Constant(Int(token.value)) if type(token.value) is int else Constant(Float(token.value))
@@ -388,6 +393,12 @@ class Parser:
                     self.eat(TokenType.COMMA)
                     value = TupleConstant([value] + self.expr_list())
                 self.eat(TokenType.GROUP, ')')
+                if self.token.type == TokenType.ARROW:
+                    if isinstance(value, Variable):
+                        names = [value.name]
+                    elif all([isinstance(val, Variable) for val in value.arguments]):
+                        names = [val.name for val in value.arguments]
+                    return FunctionCreate(self.statement_block(), names)
                 return value
 
             if token.value == '[':

@@ -1,6 +1,6 @@
-from .base import IComputable, Object, none_object, FunctionCall, Constant
+from .base import IComputable, Object, create_none, FunctionCall, Constant
 from .base import unpack, Variable, IAssignable, OperatorCall, forward_declarations
-from .statements import IStatement, StatementList
+from .statements import StatementList, IStatement
 from .logic import try_bool, Bool
 from typing import Type, Optional, List
 
@@ -16,9 +16,9 @@ class ConditionalStatement(IStatement):
 
     def eval(self, scope_path: tuple) -> Type[Object]:
         if try_bool(self.condition.eval(scope_path)).value:
-            return self.if_body.exec(scope_path)
+            return self.if_body.eval(scope_path)
         elif self.else_body is not None:
-            return self.else_body.exec(scope_path)
+            return self.else_body.eval(scope_path)
 
 
 class ConditionalExpression(IComputable, IAssignable):
@@ -77,7 +77,7 @@ class WhileStatement(IStatement):
 
     def eval(self, scope_path: tuple) -> Type[Object]:
         while try_bool(self.condition.eval(scope_path)).value:
-            result = self.body.exec(scope_path)
+            result = self.body.eval(scope_path)
             if result is not None:
                 if type(result) is BreakMarker:
                     break
@@ -85,7 +85,7 @@ class WhileStatement(IStatement):
                     continue
                 if result.is_return or result.is_except:
                     return result
-        return none_object
+        return create_none()
 
 
 class ForStatement(IStatement):
@@ -104,7 +104,7 @@ class ForStatement(IStatement):
                 values = unpack(value)
             for name, val in zip(self.iter_vars, values):
                 Variable(name).set_value(scope_path, val)
-            result = self.body.exec(scope_path)
+            result = self.body.eval(scope_path)
             if result is not None:
                 if type(result) is BreakMarker:
                     break
@@ -112,7 +112,7 @@ class ForStatement(IStatement):
                     continue
                 if result.is_return or result.is_except:
                     return result
-        return none_object
+        return create_none()
 
 
 class ContainsOperation(IComputable):

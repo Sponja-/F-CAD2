@@ -1,11 +1,11 @@
 from .base import Class, IPrimitiveType, Object, forward_declarations
-from .base import NoneType, to_primitive_function, register_primitive
+from .base import NoneType, to_primitive_function, register_class
 from .base import OperatorCall, Constant, FunctionCall, IComputable
 from .base import UnpackOperation, Variable, ConstructorCall
-from .base import none_object, IAssignable
+from .base import IAssignable
 from .logic import Bool
 from .numerical import Int
-from .exceptions import RaiseStatement, StopIteration
+from .exceptions import raise_stop_iter
 from .flow_control import ListComprehension
 from typing import List, Type, Dict
 
@@ -19,7 +19,6 @@ class Tuple(IPrimitiveType):
 
 def tuple_constructor(this: Tuple, *args: Type[Object]):
     this.elements = tuple(args)
-    return none_object
 
 
 def tuple_get_item(this: Tuple, index: Int) -> Type[Object]:
@@ -68,7 +67,7 @@ def tuple_next(this: Tuple) -> Type[Object]:
         this.iter_current += 1
         return result
     else:
-        return RaiseStatement(Constant(StopIteration)).exec(())
+        return raise_stop_iter()
 
 
 def tuple_to_string(this: Tuple):
@@ -105,7 +104,6 @@ class Array(IPrimitiveType):
 
 def array_constructor(this: Array, *args):
     this.elements = list(args)
-    return none_object
 
 
 def array_get_item(this: Array, index: Int) -> Object:
@@ -174,7 +172,7 @@ def array_next(this: Array) -> Array:
         this.iter_current += 1
         return result
     else:
-        return RaiseStatement(Constant(StopIteration)).exec(())
+        return raise_stop_iter()
 
 
 def array_to_string(this: Array):
@@ -223,7 +221,6 @@ def dict_constructor(this: Dictionary, arg: Type[Object]) -> None:
             assert(len(pair) == 2)
             result[pair[0]] = pair[1]
         this.elements = result
-    return none_object
 
 
 def dict_get_item(this: Dictionary, index: Type[Object]) -> Type[Object]:
@@ -307,9 +304,9 @@ dictionary_class = Class("dict", {
 })
 
 
-register_primitive("tuple", Tuple, tuple_class)
-register_primitive("array", Array, array_class)
-register_primitive("dict", Dictionary, dictionary_class)
+register_class("tuple", Tuple, tuple_class)
+register_class("array", Array, array_class)
+register_class("dict", Dictionary, dictionary_class)
 
 
 class ItemAccess(IComputable):
@@ -333,12 +330,8 @@ class ArrayConstant(IComputable, IAssignable):
 
     def eval(self, scope_path: tuple) -> Type[Object]:
         if len(self.arguments) == 1 and isinstance(self.arguments[0], ListComprehension):
-            return ConstructorCall(Variable("array"),
-                                   UnpackOperation(self.arguments[0]),
-                                   Constant(none_object)).eval(scope_path)
-        return ConstructorCall(Variable("array"),
-                               self.arguments,
-                               Constant(none_object)).eval(scope_path)
+            return ConstructorCall(Variable("array"), UnpackOperation(self.arguments[0])).eval(scope_path)
+        return ConstructorCall(Variable("array"), self.arguments).eval(scope_path)
 
     def set_value(self, scope_path: tuple, value) -> Type[Object]:
         iterator = iter(value)
@@ -358,7 +351,7 @@ class TupleConstant(IComputable):
     def eval(self, scope_path: tuple) -> Type[Object]:
         if len(self.arguments) == 1 and isinstance(self.arguments[0], ListComprehension):
             return self.arguments[0].eval(scope_path)
-        return ConstructorCall(Variable("tuple"), self.argumentsm, Constant(none_object)).eval(scope_path)
+        return ConstructorCall(Variable("tuple"), self.arguments).eval(scope_path)
 
 
 class DictionaryConstant(IComputable):
