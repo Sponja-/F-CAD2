@@ -309,7 +309,7 @@ register_class("array", Array, array_class)
 register_class("dict", Dictionary, dictionary_class)
 
 
-class ItemAccess(IComputable):
+class ItemAccess(IComputable, IAssignable):
     def __init__(self,
                  iterable: Type[IComputable],
                  arguments: Type[IComputable]):
@@ -320,7 +320,7 @@ class ItemAccess(IComputable):
         return MemberCall(self.iterable, "#get_item", self.arguments).eval(scope_path)
 
     def set_value(self, scope_path: tuple, value: Type[Object]) -> Type[Object]:
-        return MemberCall(self.iterable, self.arguments + [Constant(value)]).eval(scope_path)
+        return MemberCall(self.iterable, "#set_item", self.arguments + [Constant(value)]).eval(scope_path)
 
 
 class ArrayConstant(IComputable, IAssignable):

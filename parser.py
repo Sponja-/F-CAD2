@@ -97,12 +97,68 @@ class Parser:
         return StatementList(result)
 
     def statement(self):
+        return self.class_statement()
+
+    def class_statement(self):
+        if self.token.value == "class":
+            self.eat(TokenType.KEYWORD)
+            name = self.eat(TokenType.NAME)
+            if self.token.value == "extends":
+                self.eat(TokenType.KEYWORD)
+                parent_name = self.eat(TokenType.NAME)
+            else:
+                parent_name = None
+            methods = {}
+            statics = {}
+            self.eat(TokenType.GROUP, '{')
+            while self.token.value != '}':
+                if self.token.value == "static":
+                    self.eat(TokenType.KEYWORD)
+                    definition = self.function_statement()
+                    statics[definition.object.name] = definition.value
+                elif self.token.value == "function":
+                    definition = self.function_statement()
+                    methods[definition.object.name] = definition.value
+                else:
+                    assignment = self.assignment()
+                    statics[assignment.object.name] = assignment.value
+            return Assignment(Variable(name), ClassCreate(name, methods, statics, parent_name))
+        return self.function_statement()
+
+    def function_statement(self):
+        if self.token.value == "function":
+            self.eat(TokenType.KEYWORD)
+            name = self.eat(TokenType.NAME)
+            var_arg_name = None
+            default_args = []
+            self.eat(TokenType.GROUP, '(')
+            if self.token.type == TokenType.ELLIPSIS:
+                names = []
+                var_arg_name = self.eat(TokenType.NAME)
+            else:
+                names = [self.eat(TokenType.NAME)]
+                while self.token.type == TokenType.COMMA:
+                    self.eat(TokenType.COMMA)
+                    if self.token.type == TokenType.ELLIPSIS:
+                        self.eat(TokenType.ELLIPSIS)
+                        var_arg_name = self.eat(TokenType.NAME)
+                        break
+                    else:
+                        names.append(self.eat(TokenType.NAME))
+                        if self.token.value == '=':
+                            self.eat(TokenType.OPERATOR)
+                            default_args.append(self.expr())
+            self.eat(TokenType.GROUP, ')')
+            body = self.statement_block()
+            return Assignment(Variable(name), FunctionCreate(body, names, var_arg_name, default_args=reversed(default_args)))
         return self.special_statement()
 
     def special_statement(self):
         if self.token.value == "return":
+            self.eat(TokenType.KEYWORD)
             return ReturnStatement(self.expr_statement())
         if self.token.value == "raise":
+            self.eat(TokenType.KEYWORD)
             return RaiseStatement(self.expr_statement())
         if self.token.value == "break":
             self.eat(TokenType.KEYWORD)
@@ -159,65 +215,12 @@ class Parser:
         return result
 
     def expr(self):
-        return self.class_definition()
-
-    def class_definition(self):
-        if self.token.value == "class":
-            self.eat(TokenType.KEYWORD)
-            name = self.eat(TokenType.NAME)
-            if self.token.value == "extends":
-                self.eat("KEYWORD")
-                parent_name = self.eat(TokenType.NAME)
-            else:
-                parent_name = None
-            methods = {}
-            statics = {}
-            self.eat(TokenType.GROUP, '{')
-            while self.token.value != '}' and self.token.type != TokenType.EOF:
-                if self.token.value == "static":
-                    self.eat(TokenType.KEYWORD)
-                    definition = self.function_definition()
-                    statics[definition.object.name] = definition.value
-                elif self.token.value == "function":
-                    definition = self.function_definition()
-                    methods[definition.object.name] = definition.value
-                else:
-                    assignment = self.assignment()
-                    statics[assignment.object.name] = assignment.value
-            return Assignment(Variable(name), ClassCreate(name, methods, statics, parent_name))
-        return self.function_definition()
-
-    def function_definition(self):
-        if self.token.value == "function":
-            self.eat(TokenType.KEYWORD)
-            name = self.eat(TokenType.NAME)
-            var_arg_name = None
-            default_args = []
-            self.eat(TokenType.GROUP, '(')
-            if self.token.type == TokenType.ELLIPSIS:
-                names = []
-                var_arg_name = self.eat(TokenType.NAME)
-            else:
-                names = [self.eat(TokenType.NAME)]
-                while self.token.type == TokenType.COMMA:
-                    self.eat(TokenType.COMMA)
-                    if self.token.type == TokenType.ELLIPSIS:
-                        self.eat(TokenType.ELLIPSIS)
-                        var_arg_name = self.eat(TokenType.NAME)
-                        break
-                    else:
-                        names.append(self.eat(TokenType.NAME))
-                        if self.token.value == '=':
-                            self.eat(TokenType.OPERATOR)
-                            default_args.append(self.expr())
-            self.eat(TokenType.GROUP, ')')
-            body = self.statement_block()
-            return Assignment(Variable(name), FunctionCreate(body, names, var_arg_name, default_args=reversed(default_args)))
         return self.assignment_expr()
 
     def assignment_expr(self):
         var = self.list_comp_expr()
-        if self.token.value == '=' and isinstance(var, IAssignable):
+        if self.token.value == '=':
+            assert(isinstance(var, IAssignable))
             self.eat(TokenType.OPERATOR)
             expr = self.assignment_expr()
             return Assignment(var, expr)

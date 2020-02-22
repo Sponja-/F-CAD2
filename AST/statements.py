@@ -21,7 +21,10 @@ class ExprStatement(IStatement):
         self.expression = expression
 
     def eval(self, scope_path: tuple) -> Type[Object]:
-        return self.expression.eval(scope_path)
+        if self.expression is not None:
+            return self.expression.eval(scope_path)
+        else:
+            return create_none()
 
 
 class StatementList(IStatement):

@@ -110,4 +110,4 @@ def print_function(value):
     print(repr(value))
 
 
-register_function("print", print_function)
+register_function("print", to_primitive_function(print_function))
