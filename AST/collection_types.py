@@ -1,6 +1,6 @@
 from .base import Class, IPrimitiveType, Object, forward_declarations
 from .base import NoneType, to_primitive_function, register_class
-from .base import OperatorCall, Constant, FunctionCall, IComputable
+from .base import OperatorCall, Constant, MemberCall, IComputable
 from .base import UnpackOperation, Variable, ConstructorCall
 from .base import IAssignable
 from .logic import Bool
@@ -317,10 +317,10 @@ class ItemAccess(IComputable):
         self.arguments = arguments
 
     def eval(self, scope_path: tuple) -> Type[Object]:
-        return FunctionCall(self.iterable.eval(scope_path)["#get_item"], self.arguments).eval(scope_path)
+        return MemberCall(self.iterable, "#get_item", self.arguments).eval(scope_path)
 
     def set_value(self, scope_path: tuple, value: Type[Object]) -> Type[Object]:
-        return FunctionCall(self.iterable.eval(scope_path)["#set_item"], self.arguments + [value]).eval(scope_path)
+        return MemberCall(self.iterable, self.arguments + [Constant(value)]).eval(scope_path)
 
 
 class ArrayConstant(IComputable, IAssignable):

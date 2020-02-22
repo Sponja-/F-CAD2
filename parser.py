@@ -40,12 +40,9 @@ class Parser:
     def __init__(self, text):
         self.tokens = Tokenizer(text).get_token_list()
         self.pos = 0
-        self.show_errors = True
 
     def error(self, message=""):
-        if self.show_errors:
-            print(f"Error on {self.token} at pos {self.pos}:\n\t{message}")
-        raise SyntaxError
+        raise SyntaxError(f"On {self.token} at pos {self.pos}:\n\t{message}")
 
     @property
     def token(self):
@@ -94,8 +91,6 @@ class Parser:
         s = self.statement()
         result = [s] if s is not None else []
         while self.token.value != '}' and self.token.type != TokenType.EOF:
-            if self.prev_token.value != '}':
-                self.eat(TokenType.SEMICOLON)
             s = self.statement()
             if s is not None:
                 result.append(s)
@@ -213,18 +208,18 @@ class Parser:
                     else:
                         names.append(self.eat(TokenType.NAME))
                         if self.token.value == '=':
-                            self.eat(TokenType.ASSIGNMENT)
+                            self.eat(TokenType.OPERATOR)
                             default_args.append(self.expr())
             self.eat(TokenType.GROUP, ')')
             body = self.statement_block()
             return Assignment(Variable(name), FunctionCreate(body, names, var_arg_name, default_args=reversed(default_args)))
         return self.assignment_expr()
 
-    def assignment(self):
+    def assignment_expr(self):
         var = self.list_comp_expr()
         if self.token.value == '=' and isinstance(var, IAssignable):
-            self.eat(TokenType.ASSIGNMENT)
-            expr = self.assignment()
+            self.eat(TokenType.OPERATOR)
+            expr = self.assignment_expr()
             return Assignment(var, expr)
         return var
 
@@ -243,12 +238,12 @@ class Parser:
         return operation
 
     def conditional_expr(self):
-        condition = self.logic_expr()
+        condition = self.or_expr()
         if self.token.type == TokenType.QUESTION:
             self.eat(TokenType.QUESTION)
-            if_expr = self.logic_expr()
+            if_expr = self.expr()
             self.eat(TokenType.COLON)
-            else_expr = self.logic_expr()
+            else_expr = self.expr()
             return ConditionalExpression(condition, if_expr, else_expr)
         return condition
 
@@ -374,9 +369,13 @@ class Parser:
             self.eat(TokenType.KEYWORD)
             return ConstructorCall(Variable("NoneType"), [])
 
-        if token.type == TokenType.NUMBER:
-            self.eat(TokenType.NUMBER)
-            return Constant(Int(token.value)) if type(token.value) is int else Constant(Float(token.value))
+        if token.type == TokenType.INT:
+            self.eat(TokenType.INT)
+            return Constant(Int(token.value))
+
+        if token.type == TokenType.FLOAT:
+            self.eat(TokenType.FLOAT)
+            return Constant(Float(token.value))
 
         if token.type == TokenType.NAME:
             self.eat(TokenType.NAME)
@@ -442,11 +441,11 @@ class Parser:
 
 
 def parse_expr(text):
-    return Parser(Tokenizer(text)).expr().eval(())
+    return Parser(text).expr().eval(())
 
 
 def parse_program(text):
-    return Parser(Tokenizer(text)).statement_list().eval(())
+    return Parser(text).statement_list().eval(())
 
 
 if __name__ == "__main__":

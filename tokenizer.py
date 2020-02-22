@@ -20,8 +20,7 @@ class TokenType(Enum):
     COLON = 13
     QUESTION = 14
     SEPARATOR = 15
-    ASSIGNMENT = 16
-    ARROW = 17
+    ARROW = 16
 
 
 TokenValue = TypeVar("TokenValue", int, float, str)
@@ -187,10 +186,6 @@ class Tokenizer:
                 self.advance(2)
                 return Token(TokenType.ARROW, '=>')
 
-            if self.char == '=':
-                self.advance()
-                return Token(TokenType.ASSIGNMENT, '=')
-
             if self.char == self.next_char == self.text[self.pos + 2] == '.':
                 self.advance(3)
                 return Token(TokenType.ELLIPSIS)
@@ -229,4 +224,4 @@ class Tokenizer:
             result.append(t)
             t = self.get_next_token()
 
-        return result
+        return result + [t]

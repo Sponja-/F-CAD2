@@ -17,7 +17,7 @@ class Object:
         self.is_except = False
 
     def call(self, name: str, args: List[Type["Object"]] = []) -> Type["Object"]:
-        return MemberCall(Constant(self), name, [Constant(arg) for arg in args], Constant(create_none())).eval(())
+        return MemberCall(Constant(self), name, [Constant(arg) for arg in args]).eval(())
 
     def get(self, index):
         return self.attributes.get(index, self.type.get_method(index))
@@ -139,7 +139,7 @@ class Variable(IComputable, IAssignable):
         result = Variable.table[scope_path + (self.name,)]
         if result is not None:
             return result
-        raise f"Name {self.name} could not be resolved"
+        raise IndexError(f"Name {self.name} could not be resolved")
 
     def set_value(self, scope_path: tuple, value: Object):
         Variable.table[scope_path + (self.name,)] = value
@@ -313,11 +313,11 @@ class MemberCall(Call):
                  object: Type[IComputable],
                  name: str,
                  args: Iterable[IComputable],
-                 kwargs):
+                 kwargs=None):
         self.object = object
         self.name = name
         self.args = args
-        self.kwargs = kwargs
+        self.kwargs = Constant(NoneType()) if kwargs is None else kwargs
 
     def eval(self, scope_path: tuple) -> Type[Object]:
         obj = self.object.eval(scope_path)
@@ -412,10 +412,10 @@ class FunctionCall(Call):
     def __init__(self,
                  function: Type[IComputable],
                  args: Iterable[IComputable],
-                 kwargs) -> None:
+                 kwargs=None) -> None:
         self.function = function
         self.args = args
-        self.kwargs = kwargs
+        self.kwargs = Constant(NoneType()) if kwargs is None else kwargs
 
     def eval(self, scope_path: tuple) -> Type[Object]:
         f = self.function.eval(scope_path)
