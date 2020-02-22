@@ -1,4 +1,4 @@
-from .base import IComputable, Object, none_object
+from .base import IComputable, Object, create_none
 from typing import Type, Iterable
 
 
@@ -30,7 +30,7 @@ class StatementList(IStatement):
         self.statements = statements
 
     def eval(self, scope_path: tuple) -> Type[Object]:
-        ret_val = none_object
+        ret_val = create_none()
         for statement in self.statements:
             result = statement.eval(scope_path)
             if result.is_return or result.is_except:

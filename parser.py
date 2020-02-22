@@ -1,8 +1,9 @@
+from argparse import ArgumentParser
+
 from AST.base import ClassCreate, FunctionCreate, Assignment, Variable, MemberCall
 from AST.base import IAssignable, FunctionCall, OperatorCall, MemberAccess
 from AST.base import ConstructorCall, UnpackOperation, Constant, Destructuring
-from AST.base import none_class
-from AST.statements import StatementList, Statement, ReturnStatement
+from AST.statements import StatementList, ExprStatement, ReturnStatement
 from AST.exceptions import RaiseStatement
 from AST.logic import NotOperation, OrOperation, AndOperation
 from AST.flow_control import BreakStatement, ContinueStatement, ConditionalExpression
@@ -158,7 +159,7 @@ class Parser:
         return self.expr_statement()
 
     def expr_statement(self):
-        result = Statement(self.expr())
+        result = ExprStatement(self.expr())
         self.eat(TokenType.SEMICOLON)
         return result
 
@@ -371,7 +372,7 @@ class Parser:
 
         if token.value == "null":
             self.eat(TokenType.KEYWORD)
-            return ConstructorCall(none_class, [])
+            return ConstructorCall(Variable("NoneType"), [])
 
         if token.type == TokenType.NUMBER:
             self.eat(TokenType.NUMBER)
@@ -438,3 +439,25 @@ class Parser:
             return UnpackOperation(self.expr())
 
         return None
+
+
+def parse_expr(text):
+    return Parser(Tokenizer(text)).expr().eval(())
+
+
+def parse_program(text):
+    return Parser(Tokenizer(text)).statement_list().eval(())
+
+
+if __name__ == "__main__":
+    arg_parser = ArgumentParser(description="Interprets a file, or works as a REPL if none is provided")
+    arg_parser.add_argument('file', type=str, help='File to interpret', nargs='?')
+
+    args = arg_parser.parse_args()
+
+    if args.file is not None:
+        with open(args.file, 'r') as file:
+            parse_program(file.read().strip())
+    else:
+        while True:
+            print(parse_expr(input('> ')))
