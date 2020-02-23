@@ -1,5 +1,5 @@
 from .base import Class, IPrimitiveType, forward_declarations, Object, create_none
-from .base import IComputable, to_primitive_function, register_class
+from .base import IComputable, to_primitive_function, register_class, register_function
 from typing import Type
 
 
@@ -93,3 +93,12 @@ bool_class = Class("bool", {
 })
 
 register_class("bool", Bool, bool_class)
+
+
+def is_null_function(value):
+    if value.type.name != "NoneType":
+        return Bool(False)
+    return Bool(True)
+
+
+register_function("is_null", to_primitive_function(is_null_function))

@@ -1,0 +1,42 @@
+#!/usr/bin/python3
+from argparse import ArgumentParser
+from parser import parse_expr, parse_statement, parse_program
+
+
+arg_parser = ArgumentParser(description="Interprets a file, or works as a REPL if none is provided")
+arg_parser.add_argument('--file', type=str, help='File to interpret', nargs='?')
+arg_parser.add_argument('-e', help="Run the REPL in expression-only mode", action="store_true")
+
+args = arg_parser.parse_args()
+
+if args.file is not None:
+    with open(args.file, 'r') as file:
+        parse_program(file.read().strip())
+elif args.e:
+    while True:
+        print(parse_expr(input("> ")))
+else:
+    brackets = {
+        ')': '(',
+        ']': '[',
+        '}': '{'
+    }
+    stack = []
+    text = ""
+    prompt = "> "
+    while True:
+        line = input(prompt)
+        for c in line:
+            if c in brackets.values():
+                stack.append(c)
+            elif c in brackets.keys() and stack[-1] == brackets[c]:
+                stack.pop()
+        text += '\n' + line
+        if not stack:
+            if text[-1] != ';':
+                text += ';'
+            print(parse_statement(text))
+            text = ""
+            prompt = "> "
+        else:
+            prompt = ". "

@@ -1,5 +1,3 @@
-from argparse import ArgumentParser
-
 from AST.base import ClassCreate, FunctionCreate, Assignment, Variable, MemberCall
 from AST.base import IAssignable, FunctionCall, OperatorCall, MemberAccess
 from AST.base import ConstructorCall, UnpackOperation, Constant, Destructuring
@@ -65,7 +63,7 @@ class Parser:
 
     def eat(self, type: TokenType, value: Any = None):
         if self.token.type != type or (value is not None and self.token.value != value):
-            self.error(f"Expected {type}" + (f"of value {value}" if value is not None else ""))
+            self.error(f"Expected {type}" + (f" of value {value}" if value is not None else ""))
         else:
             value = self.token.value
             self.pos += 1
@@ -122,6 +120,7 @@ class Parser:
                 else:
                     assignment = self.assignment()
                     statics[assignment.object.name] = assignment.value
+            self.eat(TokenType.GROUP)
             return Assignment(Variable(name), ClassCreate(name, methods, statics, parent_name))
         return self.function_statement()
 
@@ -135,8 +134,11 @@ class Parser:
             if self.token.type == TokenType.ELLIPSIS:
                 names = []
                 var_arg_name = self.eat(TokenType.NAME)
-            else:
+            elif self.token.type == TokenType.NAME:
                 names = [self.eat(TokenType.NAME)]
+                if self.token.value == '=':
+                    self.eat(TokenType.OPERATOR)
+                    default_args.append(self.expr())
                 while self.token.type == TokenType.COMMA:
                     self.eat(TokenType.COMMA)
                     if self.token.type == TokenType.ELLIPSIS:
@@ -148,9 +150,15 @@ class Parser:
                         if self.token.value == '=':
                             self.eat(TokenType.OPERATOR)
                             default_args.append(self.expr())
+            else:
+                names = []
             self.eat(TokenType.GROUP, ')')
             body = self.statement_block()
-            return Assignment(Variable(name), FunctionCreate(body, names, var_arg_name, default_args=reversed(default_args)))
+            return Assignment(Variable(name),
+                              FunctionCreate(body,
+                                             names,
+                                             var_arg_name,
+                                             default_args=reversed(default_args)))
         return self.special_statement()
 
     def special_statement(self):
@@ -319,9 +327,20 @@ class Parser:
         with_kwargs = kwargs.get("with_kwargs", False)
         start_symbol = self.token.value
         result = [self.expr()]
-        if result[0] is None:
-            return []
         kwarg_lines = []
+
+        if result[0] is None:
+            result = []
+
+        if self.token.value == ')':
+            if (len(result) == 1 and
+               with_kwargs and
+               isinstance(result[-1], Assignment) and
+               isinstance(result[-1].object, Variable) and
+               start_symbol != '('):
+                kv_pair = result.pop()
+                kwarg_lines.append(Constant(String(kv_pair.object.name)), kv_pair.value)
+
         while self.token.type == TokenType.COMMA:
             if (with_kwargs and
                isinstance(result[-1], Assignment) and
@@ -329,9 +348,11 @@ class Parser:
                start_symbol != '('):
                 kv_pair = result.pop()
                 kwarg_lines.append(Constant(String(kv_pair.object.name)), kv_pair.value)
-            self.eat(TokenType.COMMA)
-            start_symbol = self.token.value
-            result.append(self.expr())
+            if self.token.type == TokenType.COMMA:
+                self.eat(TokenType.COMMA)
+                start_symbol = self.token.value
+                result.append(self.expr())
+
         return result if not with_kwargs else (result, DictionaryConstant(kwarg_lines))
 
     def trailer_expr(self):
@@ -339,9 +360,7 @@ class Parser:
         while self.token.value in ('(', '[') or self.token.type == TokenType.DOT:
             if self.token.type == TokenType.DOT:
                 self.eat(TokenType.DOT)
-                member_name = self.token.value
-                self.eat(TokenType.NAME)
-                return MemberAccess(value, member_name)
+                value = MemberAccess(value, self.eat(TokenType.NAME))
             if self.token.value == '(':
                 self.eat(TokenType.GROUP)
                 args, kwargs = self.expr_list(with_kwargs=True)
@@ -364,7 +383,7 @@ class Parser:
             self.eat(TokenType.KEYWORD)
             type = self.atom()
             self.eat(TokenType.GROUP, '(')
-            args, kwargs = self.expr(with_kwargs=True)
+            args, kwargs = self.expr_list(with_kwargs=True)
             self.eat(TokenType.GROUP, ')')
             return ConstructorCall(type, args, kwargs)
 
@@ -447,19 +466,9 @@ def parse_expr(text):
     return Parser(text).expr().eval(())
 
 
+def parse_statement(text):
+    return Parser(text).statement().eval(())
+
+
 def parse_program(text):
     return Parser(text).statement_list().eval(())
-
-
-if __name__ == "__main__":
-    arg_parser = ArgumentParser(description="Interprets a file, or works as a REPL if none is provided")
-    arg_parser.add_argument('file', type=str, help='File to interpret', nargs='?')
-
-    args = arg_parser.parse_args()
-
-    if args.file is not None:
-        with open(args.file, 'r') as file:
-            parse_program(file.read().strip())
-    else:
-        while True:
-            print(parse_expr(input('> ')))

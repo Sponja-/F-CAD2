@@ -62,7 +62,7 @@ def tuple_iter(this: Tuple) -> Tuple:
 
 
 def tuple_next(this: Tuple) -> Type[Object]:
-    if this.iter_current <= len(this.elements):
+    if this.iter_current < len(this.elements):
         result = this.elements[this.iter_current]
         this.iter_current += 1
         return result
@@ -167,7 +167,7 @@ def array_iter(this: Array) -> Array:
 
 
 def array_next(this: Array) -> Array:
-    if this.iter_current <= len(this.elements):
+    if this.iter_current < len(this.elements):
         result = this.elements[this.iter_current]
         this.iter_current += 1
         return result

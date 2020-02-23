@@ -1,5 +1,5 @@
 from .base import Object, IComputable, IPrimitiveType, Class, ConstructorCall
-from .base import Variable, create_none, register_class
+from .base import Variable, create_none, register_class, Constant
 from .statements import StatementList
 from typing import Type, Optional
 
@@ -47,7 +47,7 @@ StopIteration_class = Class("StopIteration", {}, {})
 
 
 def raise_stop_iter():
-    return RaiseStatement(ConstructorCall(StopIteration_class, [])).eval(())
+    return RaiseStatement(ConstructorCall(Constant(StopIteration_class), [])).eval(())
 
 
 register_class("StopIteration", StopIteration, StopIteration_class)

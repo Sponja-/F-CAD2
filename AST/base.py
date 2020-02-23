@@ -29,7 +29,10 @@ class Object:
         return self.call("#hash").value
 
     def __repr__(self):
-        return self.call("#to_string").value
+        if self.has("#to_string"):
+            return self.call("#to_string").value
+        else:
+            return f"instance of {self.type.name}"
 
     def __iter__(self):
         return self.call("#iter")
@@ -103,6 +106,9 @@ class Scope:
             del self.elements[path[0]][path[1:]]
         else:
             del self.elements[path[0]]
+
+    def names(self):
+        return list(self.elements.keys())
 
     def new_scope(self,
                   path: tuple,
@@ -221,7 +227,7 @@ class Class(IPrimitiveType):
         self.name = name
         self.methods = methods
         self.parent = parent
-        if self.name != "class":
+        if self.name != "ClassType":
             super().__init__(class_class)
             self.attributes.update(statics)
 
@@ -263,7 +269,7 @@ def class_constructor(this: Class, name, methods, statics, parent):
     assert(name.type.name == "string")
     assert(methods.type.name == "dict")
     assert(statics.type.name == "dict")
-    assert(parent.type.name == "class")
+    assert(parent.type.name == "ClassType")
     this.name = name.value
     this.methods = {name.value: elem for name, elem in methods.elements.items()}
     this.parent = parent if parent.name != "NoneType" else None
@@ -378,7 +384,8 @@ class FunctionCreate(IComputable):
                         scope_path,
                         self.arg_names,
                         self.var_arg_name,
-                        default_args=self.default_args)
+                        default_args=[default_arg.eval(scope_path)
+                                      for default_arg in self.default_args])
 
 
 def create_locals(func: Function,
@@ -397,7 +404,7 @@ def create_locals(func: Function,
     if len(func.arg_names) > len(unpacked_args):
         assert(len(func.default_args) + len(unpacked_args) >= len(func.arg_names))
         new_locals.update({name: arg for name, arg in
-                           zip(func.arg_names[-1:len(unpacked_args) - 1:-1],
+                           zip(reversed(func.arg_names),
                                func.default_args[:len(func.arg_names) - len(unpacked_args)])})
     elif len(func.arg_names) < len(unpacked_args) and func.var_arg_name is not None:
         new_locals[func.var_arg_name] = forward_declarations["array"](unpacked_args[len(func.arg_names):])
@@ -538,8 +545,8 @@ def register_function(name, func):
     Variable.table[(name,)] = func
 
 
-class_class = Class("class", {})
-function_class = Class("function", {})
+class_class = Class("ClassType", {})
+function_class = Class("FunctionType", {})
 
 
 class_class.methods["constructor"] = to_primitive_function(class_constructor)
@@ -554,6 +561,6 @@ none_class = Class("NoneType", {
 })
 
 
-register_class("class", Class, class_class)
-register_class("function", Function, function_class)
+register_class("ClassType", Class, class_class)
+register_class("FunctionType", Function, function_class)
 register_class("NoneType", NoneType, none_class)

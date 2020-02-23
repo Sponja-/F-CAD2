@@ -20,3 +20,39 @@ function g(x, y) {
 }
 
 print(g(5, f(10)));
+
+class A {
+	function constructor(mult=1) {
+		this.mult = mult;
+		this.value = 0;
+	}
+
+	function add(amount) {
+		this.value = this.value + amount * this.mult;
+	}
+}
+
+obj = new A();
+print(obj.value);
+obj.add(10);
+print(obj.value);
+
+if(obj.value == 11) {
+	print("false");
+}
+else if (obj.value > 5){
+	print("true");
+}
+else {
+	print("false");
+}
+
+i = 0;
+while(i < 10) {
+	i = i + 1;
+	print(i);
+}
+
+for(x in arr) {
+	print(x * 2);
+}
