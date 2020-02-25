@@ -6,7 +6,7 @@ from .base import IAssignable
 from .logic import Bool
 from .numerical import Int
 from .exceptions import raise_stop_iter
-from .flow_control import ListComprehension
+from .flow_control import ListComprehensionConstant
 from typing import List, Type, Dict
 
 
@@ -329,8 +329,8 @@ class ArrayConstant(IComputable, IAssignable):
         self.arguments = arguments
 
     def eval(self, scope_path: tuple) -> Type[Object]:
-        if len(self.arguments) == 1 and isinstance(self.arguments[0], ListComprehension):
-            return ConstructorCall(Variable("array"), UnpackOperation(self.arguments[0])).eval(scope_path)
+        if len(self.arguments) == 1 and isinstance(self.arguments[0], ListComprehensionConstant):
+            return Variable("array").call("#call", self.arguments[0].eval(scope_path))
         return ConstructorCall(Variable("array"), self.arguments).eval(scope_path)
 
     def set_value(self, scope_path: tuple, value) -> Type[Object]:
@@ -349,8 +349,8 @@ class TupleConstant(IComputable):
         self.arguments = arguments
 
     def eval(self, scope_path: tuple) -> Type[Object]:
-        if len(self.arguments) == 1 and isinstance(self.arguments[0], ListComprehension):
-            return self.arguments[0].eval(scope_path)
+        if len(self.arguments) == 1 and isinstance(self.arguments[0], ListComprehensionConstant):
+            return Variable("tuple").call("#call", self.arguments[0].eval(scope_path))
         return ConstructorCall(Variable("tuple"), self.arguments).eval(scope_path)
 
 

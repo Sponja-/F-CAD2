@@ -22,6 +22,9 @@ class Object:
     def get(self, index):
         return self.attributes.get(index, self.type.get_method(index))
 
+    def set(self, index, value):
+        self.attributes[index] = value
+
     def has(self, index):
         return index in self.attributes or self.type.has_method(index)
 
@@ -64,6 +67,7 @@ class Call(IComputable):
         with CreateScope(function.parent_scope, new_locals) as new_scope:
             result = function.operation.eval(new_scope)
             result.is_return = False
+            result.is_yield = False
             return result
 
 
@@ -276,6 +280,14 @@ def class_constructor(this: Class, name, methods, statics, parent):
     this.attributes.update({name.value: elem for name, elem in statics.elements.items()})
 
 
+def class_equal(this: Class, other: Class):
+    return forward_declarations["Bool"](this.name == other.name)
+
+
+def class_not_equal(this: Class, other: Class):
+    return forward_declarations["Bool"](this.name != other.name)
+
+
 class ConstructorCall(Call):
     def __init__(self,
                  type: IComputable,
@@ -308,10 +320,10 @@ class MemberAccess(IComputable, IAssignable):
 
     def eval(self, scope_path: tuple) -> Type[Object]:
         obj = self.object.eval(scope_path)
-        return obj.attributes.get(self.name, obj.type.get_method(self.name))
+        return obj.get(self.name)
 
     def set_value(self, scope_path: tuple, value: Object) -> None:
-        self.object.eval(scope_path).attributes[self.name] = value
+        self.object.eval(scope_path).set(self.name, value)
 
 
 class MemberCall(Call):
@@ -550,6 +562,8 @@ function_class = Class("FunctionType", {})
 
 
 class_class.methods["constructor"] = to_primitive_function(class_constructor)
+class_class.methods["#equal"] = to_primitive_function(class_equal)
+class_class.methods["#not_equal"] = to_primitive_function(class_not_equal)
 Object.__init__(class_class, class_class)
 
 

@@ -6,7 +6,7 @@ from AST.exceptions import RaiseStatement
 from AST.logic import NotOperation, OrOperation, AndOperation
 from AST.flow_control import BreakStatement, ContinueStatement, ConditionalExpression
 from AST.flow_control import ConditionalStatement, WhileStatement, ForStatement
-from AST.flow_control import ListComprehension, ContainsOperation
+from AST.flow_control import ListComprehensionConstant, ContainsOperation
 from AST.numerical import Int, Float
 from AST.collection_types import ItemAccess, TupleConstant, ArrayConstant, DictionaryConstant
 from AST.text import String
@@ -132,6 +132,7 @@ class Parser:
             default_args = []
             self.eat(TokenType.GROUP, '(')
             if self.token.type == TokenType.ELLIPSIS:
+                self.eat(TokenType.ELLIPSIS)
                 names = []
                 var_arg_name = self.eat(TokenType.NAME)
             elif self.token.type == TokenType.NAME:
@@ -245,7 +246,7 @@ class Parser:
                 conditions = self.expr_list()
             else:
                 conditions = []
-            return ListComprehension(operation, iter_vars, iterable, conditions)
+            return ListComprehensionConstant(operation, iter_vars, iterable, conditions)
         return operation
 
     def conditional_expr(self):
@@ -457,6 +458,7 @@ class Parser:
                 return DictionaryConstant(lines)
 
         if token.type == TokenType.ELLIPSIS:
+            self.eat(TokenType.ELLIPSIS)
             return UnpackOperation(self.expr())
 
         return None

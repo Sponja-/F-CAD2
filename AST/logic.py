@@ -8,6 +8,9 @@ class Bool(IPrimitiveType):
         self.value = value
         super().__init__(bool_class)
 
+    def __bool__(self):
+        return self.value
+
 
 def try_bool(obj: Type[Object]):
     if type(obj) is Bool:

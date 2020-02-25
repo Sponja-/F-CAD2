@@ -1,0 +1,67 @@
+class zip {
+	function constructor(...iterables) {
+		this.iterables = iterables;
+		this.iterators = [];
+	}
+
+	static function #call(...args) {
+		return new zip(...args);
+	}
+
+	function #iter() {
+		for(iterable in this.iterables) {
+			this.iterators.add(iter(iterable));
+		}
+		return this;
+	}
+
+	function #next() {
+		return (next(i) | i in this.iterators);
+	}
+}
+
+class map {
+	function constructor(function, iterable) {
+		this.function = function;
+		this.iterable = iterable;
+		this.iterator = null;
+	}
+
+	static function #call(...args) {
+		return new map(...args);
+	}
+
+	function #iter() {
+		this.iterator = iter(iterable);
+		return this;
+	}
+
+	function #next() {
+		return this.function(next(this.iterator));
+	}
+}
+
+class filter {
+	function constructor(predicate, iterable) {
+		this.predicate = predicate;
+		this.iterable = iterable;
+		this.iterator = null;
+	}
+
+	static function #call(...args) {
+		return new filter(...args);
+	}
+
+	function #iter() {
+		this.iterator = iter(iterable);
+		return this;
+	}
+
+	function #next() {
+		result = next(this.iterator)
+		if(this.predicate(result))
+			return result;
+		else
+			return next(this);
+	}
+}

@@ -1,6 +1,9 @@
-from .base import IComputable, Object, create_none, FunctionCall, Constant
-from .base import unpack, Variable, IAssignable, OperatorCall, forward_declarations
+from .base import IComputable, Object, create_none, FunctionCall, Class
+from .base import unpack, Variable, IAssignable, OperatorCall
+from .base import IPrimitiveType, register_class, to_primitive_function
+from .base import register_function, Constant, CreateScope
 from .statements import StatementList, IStatement
+from .exceptions import raise_stop_iter
 from .logic import try_bool, Bool
 from typing import Type, Optional, List
 
@@ -136,7 +139,7 @@ class ContainsOperation(IComputable):
         raise SyntaxError
 
 
-class ListComprehension(IComputable):
+class ListComprehensionConstant(IComputable):
     def __init__(self,
                  operation: Type[IComputable],
                  iter_vars: List[str],
@@ -148,14 +151,65 @@ class ListComprehension(IComputable):
         self.conditions = conditions
 
     def eval(self, scope_path: tuple) -> Type[Object]:
-        result = []
-        for value in self.iterable.eval(scope_path):
-            values = [value]
-            if len(self.iter_vars) > 1:
-                values = unpack(value)
-            for name, val in zip(self.iter_vars, values):
-                Variable(name).set_value(scope_path, val)
-            if not all([try_bool(cond.eval(scope_path)) for cond in self.conditions]):
-                continue
-            result.append(self.operation.eval(scope_path))
-        return forward_declarations["Tuple"](tuple(result))
+        return ListComprehension(self.iterable,
+                                 self.iter_vars,
+                                 self.operation,
+                                 scope_path,
+                                 self.conditions)
+
+
+class ListComprehension(IPrimitiveType):
+    def __init__(self,
+                 iterable: Type[Object],
+                 names: List[str],
+                 operation: Type[IComputable],
+                 scope: tuple,
+                 conditions: List[Type[IComputable]]) -> None:
+        self.iter = None
+        self.iterable = iterable
+        self.names = names
+        self.operation = operation
+        self.scope = scope
+        self.conditions = conditions
+
+
+def list_comp_iter(this: ListComprehension) -> ListComprehension:
+    this.iter = iter(this.iterable)
+    return this
+
+
+def list_comp_next(this: ListComprehension) -> Type[Object]:
+    try:
+        value = next(this.iter)
+    except StopIteration:
+        return raise_stop_iter()
+    values = [value]
+    if len(this.names) > 1:
+        values = unpack(values)
+    new_locals = {name: val for name, val in zip(this.names, values)}
+    with CreateScope(this.scope, new_locals) as new_scope:
+        for condition in this.conditions:
+            if not try_bool(condition.eval(new_scope)).value:
+                return list_comp_next(this)
+        return this.operation.eval(new_scope)
+
+
+list_comp_class = Class("ListComprehension", {
+    "#iter":    to_primitive_function(list_comp_iter),
+    "#next":    to_primitive_function(list_comp_next)
+})
+
+
+register_class("ListComprehension", list_comp_class, ListComprehension)
+
+
+def iter_function(iterable):
+    return iterable.call("#iter")
+
+
+def next_function(iterable):
+    return iterable.call("#next")
+
+
+register_function("iter", to_primitive_function(iter_function))
+register_function("next", to_primitive_function(next_function))

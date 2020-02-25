@@ -21,6 +21,7 @@ function g(x, y) {
 
 print(g(5, f(10)));
 
+
 class A {
 	function constructor(mult=1) {
 		this.mult = mult;
@@ -56,3 +57,21 @@ while(i < 10) {
 for(x in arr) {
 	print(x * 2);
 }
+
+new_arr = [[1, 2], [3, 4]];
+
+for(x, y in new_arr) {
+	print(x + y);
+}
+
+function sum(...args) {
+	result = 0;
+	print(args);
+	for(n in args) {
+		result = result + n;
+	}
+	return result;
+}
+
+print(sum(1, 2, 3, 4));
+print(sum(...arr));

@@ -188,7 +188,7 @@ class Tokenizer:
 
             if self.char == self.next_char == self.text[self.pos + 2] == '.':
                 self.advance(3)
-                return Token(TokenType.ELLIPSIS)
+                return Token(TokenType.ELLIPSIS, '...')
 
             if self.char == self.next_char == '.':
                 self.advance(2)
