@@ -15,8 +15,9 @@ class Object:
         self.attributes = {}
         self.is_return = False
         self.is_except = False
+        self.is_yield = False  # Not implemented
 
-    def call(self, name: str, args: List[Type["Object"]] = []) -> Type["Object"]:
+    def call(self, name: str, *args: List[Type["Object"]]) -> Type["Object"]:
         return MemberCall(Constant(self), name, [Constant(arg) for arg in args]).eval(())
 
     def get(self, index):

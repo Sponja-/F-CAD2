@@ -171,10 +171,11 @@ class ListComprehension(IPrimitiveType):
         self.operation = operation
         self.scope = scope
         self.conditions = conditions
+        super().__init__(list_comp_class)
 
 
 def list_comp_iter(this: ListComprehension) -> ListComprehension:
-    this.iter = iter(this.iterable)
+    this.iter = iter(this.iterable.eval(this.scope))
     return this
 
 

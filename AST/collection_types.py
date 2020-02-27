@@ -330,7 +330,7 @@ class ArrayConstant(IComputable, IAssignable):
 
     def eval(self, scope_path: tuple) -> Type[Object]:
         if len(self.arguments) == 1 and isinstance(self.arguments[0], ListComprehensionConstant):
-            return Variable("array").call("#call", self.arguments[0].eval(scope_path))
+            return Variable("array").eval(()).call("#call", self.arguments[0].eval(scope_path))
         return ConstructorCall(Variable("array"), self.arguments).eval(scope_path)
 
     def set_value(self, scope_path: tuple, value) -> Type[Object]:

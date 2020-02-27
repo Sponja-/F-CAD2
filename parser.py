@@ -237,7 +237,7 @@ class Parser:
 
     def list_comp_expr(self):
         operation = self.conditional_expr()
-        if self.token.type == TokenType.SEPARATOR:
+        if self.token.value == "for":
             self.eat(TokenType.KEYWORD)
             iter_vars = self.name_list()
             self.eat(TokenType.KEYWORD, "in")

@@ -16,7 +16,7 @@ class zip {
 	}
 
 	function #next() {
-		return (next(i) | i in this.iterators);
+		return (next(i) for i in this.iterators);
 	}
 }
 
