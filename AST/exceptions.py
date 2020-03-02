@@ -10,8 +10,7 @@ class RaiseStatement(IComputable):
 
     def eval(self, scope_path: tuple) -> Type[Object]:
         result = self.value.eval(scope_path)
-        result.is_except = True
-        return result
+        raise result
 
 
 class TryCatch(IComputable):
@@ -26,24 +25,27 @@ class TryCatch(IComputable):
         self.finally_body = finally_body
 
     def eval(self, scope_path: tuple) -> Type[Object]:
-        result = self.try_body.eval(scope_path)
         catch_result = None
         finally_result = None
-        if result.is_except:
-            result.is_except = False
+        try:
+            result = self.try_body.eval(scope_path)
+        except Exception:
             Variable(self.except_name).set_value(scope_path, result)
             catch_result = self.catch_body.eval(scope_path)
-        if result.finally_body is not None:
-            finally_result = self.finally_body.eval(scope_path)
-        return (catch_result or finally_result) or create_none()
+        finally:
+            if result.finally_body is not None:
+                finally_result = self.finally_body.eval(scope_path)
+        return (catch_result if catch_result.is_return else
+                finally_result if catch_result.is_return else
+                create_none())
 
 
-class StopIteration(IPrimitiveType):
+class StopIteration(IPrimitiveType, Exception):
     def __init__(self):
         super().__init__(StopIteration_class)
 
 
-StopIteration_class = Class("StopIteration", {}, {})
+StopIteration_class = Class("StopIteration", {})
 
 
 def raise_stop_iter():

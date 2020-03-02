@@ -21,8 +21,8 @@ class zip {
 }
 
 class map {
-	function constructor(function, iterable) {
-		this.function = function;
+	function constructor(fn, iterable) {
+		this.fn = fn;
 		this.iterable = iterable;
 		this.iterator = null;
 	}
@@ -32,12 +32,12 @@ class map {
 	}
 
 	function #iter() {
-		this.iterator = iter(iterable);
+		this.iterator = iter(this.iterable);
 		return this;
 	}
 
 	function #next() {
-		return this.function(next(this.iterator));
+		return this.fn(next(this.iterator));
 	}
 }
 
@@ -53,15 +53,46 @@ class filter {
 	}
 
 	function #iter() {
-		this.iterator = iter(iterable);
+		this.iterator = iter(this.iterable);
 		return this;
 	}
 
 	function #next() {
-		result = next(this.iterator)
+		result = next(this.iterator);
 		if(this.predicate(result))
 			return result;
 		else
 			return next(this);
 	}
 }
+
+class enumerate {
+	function constructor(iterable) {
+		this.iterable = iterable;
+		this.iterator = null;
+		this.count = 0;
+	}
+
+	static function #call(...args) {
+		return new enumerate(...args);
+	}
+
+	function #iter() {
+		this.iterator = iter(this.iterable);
+		this.count = 0;
+		return this;
+	}
+
+	function #next() {
+		value = next(this.iterator);
+		count = this.count;
+		this.count = this.count + 1;
+		return (count, value);
+	}
+}
+
+function add2(x) {
+	return x + 2;
+}
+
+print(array(map(add2, [1, 2, 3])));

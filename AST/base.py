@@ -14,8 +14,6 @@ class Object:
         self.type = type
         self.attributes = {}
         self.is_return = False
-        self.is_except = False
-        self.is_yield = False  # Not implemented
 
     def call(self, name: str, *args: List[Type["Object"]]) -> Type["Object"]:
         return MemberCall(Constant(self), name, [Constant(arg) for arg in args]).eval(())
@@ -42,11 +40,14 @@ class Object:
         return self.call("#iter")
 
     def __next__(self):
-        result = self.call("#next")
-        if result.type.name == "StopIteration":
-            raise StopIteration
-        else:
-            return result
+        try:
+            result = self.call("#next")
+        except Exception as e:
+            if isinstance(e, Object) and e.type.name == "StopIteration":
+                raise StopIteration
+            else:
+                raise e
+        return result
 
 
 class IComputable(ABC):
@@ -228,10 +229,12 @@ class Class(IPrimitiveType):
                  name: str = "",
                  methods: Dict[str, "Function"] = {},
                  statics: Dict[str, Type[Object]] = {},
+                 parent_scope: tuple = (),
                  parent: Optional["Class"] = None) -> None:
         self.name = name
         self.methods = methods
         self.parent = parent
+        self.parent_scope = parent_scope
         if self.name != "ClassType":
             super().__init__(class_class)
             self.attributes.update(statics)
@@ -259,26 +262,11 @@ class ClassCreate(IComputable):
         self.parent_name = parent_name
 
     def eval(self, scope_path: tuple) -> Class:
-        return ConstructorCall(Constant(class_class), [
-            Constant(forward_declarations["string"](self.name)),
-            Constant(forward_declarations["dict"](
-                {forward_declarations["string"](name): value.eval(scope_path) for name, value in self.methods.items()}
-            )),
-            Constant(forward_declarations["dict"](
-                {forward_declarations["string"](name): value.eval(scope_path) for name, value in self.statics.items()}
-            )),
-            Variable(self.parent_name) if self.parent_name is not None else Variable("NoneType")], Constant(create_none())).eval(scope_path)
-
-
-def class_constructor(this: Class, name, methods, statics, parent):
-    assert(name.type.name == "string")
-    assert(methods.type.name == "dict")
-    assert(statics.type.name == "dict")
-    assert(parent.type.name == "ClassType")
-    this.name = name.value
-    this.methods = {name.value: elem for name, elem in methods.elements.items()}
-    this.parent = parent if parent.name != "NoneType" else None
-    this.attributes.update({name.value: elem for name, elem in statics.elements.items()})
+        return Class(self.name,
+                     {name: value.eval(scope_path) for name, value in self.methods.items()},
+                     {name: value.eval(scope_path) for name, value in self.statics.items()},
+                     scope_path,
+                     self.parent_name)
 
 
 def class_equal(this: Class, other: Class):
@@ -341,19 +329,21 @@ class MemberCall(Call):
     def eval(self, scope_path: tuple) -> Type[Object]:
         obj = self.object.eval(scope_path)
         f = obj.get(self.name)
+        func = f
 
         if f is None:
             raise IndexError
 
         if type(f) is not Function:
-            new_locals = create_locals(f.get("#call"),
+            func = f.get("#call")
+            new_locals = create_locals(func,
                                        [arg.eval(scope_path) for arg in self.args],
                                        self.kwargs.eval(scope_path), object=f)
         else:
-            new_locals = create_locals(f, [arg.eval(scope_path) for arg in self.args],
+            new_locals = create_locals(func, [arg.eval(scope_path) for arg in self.args],
                                        self.kwargs.eval(scope_path), object=obj)
 
-        return Call.do_call(f, new_locals)
+        return Call.do_call(func, new_locals)
 
 
 class Destructuring(IAssignable):
@@ -439,15 +429,17 @@ class FunctionCall(Call):
 
     def eval(self, scope_path: tuple) -> Type[Object]:
         f = self.function.eval(scope_path)
+        func = f
         if type(f) is not Function:
-            new_locals = create_locals(f.get("#call"),
+            func = f.get("#call")
+            new_locals = create_locals(func,
                                        [arg.eval(scope_path) for arg in self.args],
                                        self.kwargs.eval(scope_path), object=f)
         else:
-            new_locals = create_locals(f, [arg.eval(scope_path) for arg in self.args],
+            new_locals = create_locals(func, [arg.eval(scope_path) for arg in self.args],
                                        self.kwargs.eval(scope_path))
 
-        return Call.do_call(f, new_locals)
+        return Call.do_call(func, new_locals)
 
 
 def best_fitting_method(operator_name, obj, pos, length):
@@ -561,8 +553,6 @@ def register_function(name, func):
 class_class = Class("ClassType", {})
 function_class = Class("FunctionType", {})
 
-
-class_class.methods["constructor"] = to_primitive_function(class_constructor)
 class_class.methods["#equal"] = to_primitive_function(class_equal)
 class_class.methods["#not_equal"] = to_primitive_function(class_not_equal)
 Object.__init__(class_class, class_class)

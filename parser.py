@@ -159,7 +159,7 @@ class Parser:
                               FunctionCreate(body,
                                              names,
                                              var_arg_name,
-                                             default_args=reversed(default_args)))
+                                             default_args=default_args[::-1]))
         return self.special_statement()
 
     def special_statement(self):

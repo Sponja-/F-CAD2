@@ -35,6 +35,6 @@ class StatementList(IStatement):
     def eval(self, scope_path: tuple) -> Type[Object]:
         for statement in self.statements:
             result = statement.eval(scope_path)
-            if result.is_return or result.is_except or result.is_yield:
+            if result.is_return:
                 return result
         return create_none()
