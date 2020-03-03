@@ -106,8 +106,8 @@ string_class = Class("string", {
 register_class("string", String, string_class)
 
 
-def print_function(value):
-    print(repr(value))
+def print_function(*values):
+    print(*[repr(value) for value in values])
 
 
 register_function("print", to_primitive_function(print_function))

@@ -9,7 +9,7 @@ class_class_created = False
 LocalsType = Dict[str, Union[Type["Object"], Type["IComputable"], str]]
 
 
-class Object:
+class Object(Exception):
     def __init__(self, type: "Class") -> None:
         self.type = type
         self.attributes = {}
@@ -138,7 +138,8 @@ class CreateScope:
         return self.new_path
 
     def __exit__(self, type, value, traceback):
-        del Variable.table[self.new_path]
+        # del Variable.table[self.new_path]
+        pass
 
 
 class Variable(IComputable, IAssignable):
@@ -409,7 +410,7 @@ def create_locals(func: Function,
         new_locals.update({name: arg for name, arg in
                            zip(reversed(func.arg_names),
                                func.default_args[:len(func.arg_names) - len(unpacked_args)])})
-    elif len(func.arg_names) < len(unpacked_args) and func.var_arg_name is not None:
+    if func.var_arg_name is not None:
         new_locals[func.var_arg_name] = forward_declarations["array"](unpacked_args[len(func.arg_names):])
     new_locals["this"] = (func.bound_object
                           if func.bound_object is not None

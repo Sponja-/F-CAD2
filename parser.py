@@ -210,12 +210,10 @@ class Parser:
             if self.token.value == "for":
                 self.eat(TokenType.KEYWORD)
                 self.eat(TokenType.GROUP, '(')
-                names = self.name_list()
-                self.eat(TokenType.KEYWORD, "in")
-                iterable = self.expr()
+                head = self.expr()
                 self.eat(TokenType.GROUP, ')')
                 body = self.statement_block()
-                return ForStatement(names, iterable, body)
+                return ForStatement(head, body)
         return self.expr_statement()
 
     def expr_statement(self):
@@ -282,7 +280,7 @@ class Parser:
     def in_expr(self):
         value = self.comparation_expr()
         if self.token.value == "in":
-            self.eat(TokenType.OPERATOR)
+            self.eat(TokenType.KEYWORD)
             return ContainsOperation(value, self.expr())
         return value
 

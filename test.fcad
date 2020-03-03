@@ -54,13 +54,14 @@ while(i < 10) {
 	print(i);
 }
 
+
 for(x in arr) {
 	print(x * 2);
 }
 
 new_arr = [[1, 2], [3, 4]];
 
-for(x, y in new_arr) {
+for([x, y] in new_arr) {
 	print(x + y);
 }
 
@@ -79,3 +80,5 @@ print(sum(...arr));
 
 new_arr = [x * 2 for x in arr];
 print(sum(...new_arr));
+
+arr = [];

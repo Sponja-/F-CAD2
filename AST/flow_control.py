@@ -1,7 +1,7 @@
 from .base import IComputable, Object, create_none, FunctionCall, Class
 from .base import unpack, Variable, IAssignable, OperatorCall
 from .base import IPrimitiveType, register_class, to_primitive_function
-from .base import register_function, Constant, CreateScope
+from .base import register_function, Constant, CreateScope, Assignment
 from .statements import StatementList, IStatement
 from .exceptions import raise_stop_iter
 from .logic import try_bool, Bool
@@ -86,36 +86,35 @@ class WhileStatement(IStatement):
                     break
                 if type(result) is ContinueMarker:
                     continue
-                if result.is_return or result.is_except:
+                if result.is_return:
                     return result
         return create_none()
 
 
 class ForStatement(IStatement):
     def __init__(self,
-                 iter_vars: List[str],
-                 iterable: IComputable,
+                 head: Type[IComputable],
                  body: StatementList):
-        self.iter_vars = iter_vars
-        self.iterable = iterable
+        self.head = head
         self.body = body
 
     def eval(self, scope_path: tuple) -> Type[Object]:
-        for value in self.iterable.eval(scope_path):
-            values = [value]
-            if len(self.iter_vars) > 1:
-                values = unpack(value)
-            for name, val in zip(self.iter_vars, values):
-                Variable(name).set_value(scope_path, val)
-            result = self.body.eval(scope_path)
-            if result is not None:
+        if isinstance(self.head, ContainsOperation):
+            for value in self.head.iterable.eval(scope_path):
+                try:
+                    self.head.value.set_value(scope_path, value)
+                except StopIteration:
+                    break
+                result = self.body.eval(scope_path)
                 if type(result) is BreakMarker:
                     break
                 if type(result) is ContinueMarker:
                     continue
-                if result.is_return or result.is_except:
+                if result.is_return:
                     return result
-        return create_none()
+            return create_none()
+        else:
+            raise SyntaxError
 
 
 class ContainsOperation(IComputable):

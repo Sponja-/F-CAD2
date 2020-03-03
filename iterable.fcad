@@ -95,4 +95,10 @@ function add2(x) {
 	return x + 2;
 }
 
-print(array(map(add2, [1, 2, 3])));
+print(...map(add2, [1, 2, 3]));
+
+for([i, val] in enumerate(["a", "b", "c"]))
+	print(i, val);
+
+for([x, y] in zip([1, 3, 5], [2, 4, 6]))
+	print(x, y);
