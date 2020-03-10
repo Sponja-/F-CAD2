@@ -8,7 +8,11 @@ from .logic import try_bool, Bool
 from typing import Type, Optional, List
 
 
-class ConditionalStatement(IStatement):
+class IFlowStatement(IStatement):
+    pass
+
+
+class ConditionalStatement(IFlowStatement):
     def __init__(self,
                  condition: Type[IComputable],
                  if_body: StatementList,
@@ -71,7 +75,7 @@ class ContinueStatement(IStatement):
         return ContinueMarker()
 
 
-class WhileStatement(IStatement):
+class WhileStatement(IFlowStatement):
     def __init__(self,
                  condition: Type[IComputable],
                  body: StatementList) -> None:
@@ -91,7 +95,7 @@ class WhileStatement(IStatement):
         return create_none()
 
 
-class ForStatement(IStatement):
+class ForStatement(IFlowStatement):
     def __init__(self,
                  head: Type[IComputable],
                  body: StatementList):
@@ -192,15 +196,3 @@ list_comp_class = Class("ListComprehension", {
 
 
 register_class("ListComprehension", list_comp_class, ListComprehension)
-
-
-def iter_function(iterable):
-    return iterable.call("#iter")
-
-
-def next_function(iterable):
-    return iterable.call("#next")
-
-
-register_function("iter", to_primitive_function(iter_function))
-register_function("next", to_primitive_function(next_function))

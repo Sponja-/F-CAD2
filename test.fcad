@@ -82,3 +82,23 @@ new_arr = [x * 2 for x in arr];
 print(sum(...new_arr));
 
 arr = [];
+
+class P {
+	function func() {
+		print("x");
+	}
+}
+
+class C extends P {
+	function f() {
+		parent.func();
+		print("y");
+	}
+}
+
+instance = new C();
+
+instance.func();
+instance.f();
+
+print(type(instance) != type(obj));

@@ -250,7 +250,7 @@ class Class(IPrimitiveType):
     def get_method(self, index: str) -> "Function":
         return self.methods.get(index, self.parent.get_method(index) if self.parent is not None else None)
 
-    def __str__(self):
+    def __repr__(self):
         return self.name
 
 
@@ -270,15 +270,17 @@ class ClassCreate(IComputable):
                      {name: value.eval(scope_path) for name, value in self.methods.items()},
                      {name: value.eval(scope_path) for name, value in self.statics.items()},
                      scope_path,
-                     self.parent_name)
+                     Variable(self.parent_name).eval(scope_path)
+                     if self.parent_name is not None
+                     else None)
 
 
 def class_equal(this: Class, other: Class):
-    return forward_declarations["Bool"](this.name == other.name)
+    return forward_declarations["bool"](this.name == other.name)
 
 
 def class_not_equal(this: Class, other: Class):
-    return forward_declarations["Bool"](this.name != other.name)
+    return forward_declarations["bool"](this.name != other.name)
 
 
 class ConstructorCall(Call):
@@ -602,3 +604,7 @@ none_class = Class("NoneType", {
 register_class("ClassType", Class, class_class)
 register_class("FunctionType", Function, function_class)
 register_class("NoneType", NoneType, none_class)
+
+
+def type_function(object: Type[Object]) -> Class:
+    return object.type

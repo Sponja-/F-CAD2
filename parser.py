@@ -13,6 +13,7 @@ from AST.text import String
 from typing import Any
 
 from tokenizer import Tokenizer, TokenType
+import builtin_functions
 
 
 class Parser:
