@@ -18,8 +18,10 @@ class Object(Exception):
     def call(self, name: str, *args: List[Type["Object"]]) -> Type["Object"]:
         return MemberCall(Constant(self), name, [Constant(arg) for arg in args]).eval(())
 
-    def get(self, index):
-        return self.attributes.get(index, self.type.get_method(index))
+    def get(self, index, *, use_parent=False):
+        return self.attributes.get(index, (self.type.get_method(index)
+                                           if not use_parent
+                                           else self.type.parent.get_method(index)))
 
     def set(self, index, value):
         self.attributes[index] = value
@@ -331,6 +333,35 @@ class MemberCall(Call):
     def eval(self, scope_path: tuple) -> Type[Object]:
         obj = self.object.eval(scope_path)
         f = obj.get(self.name)
+        func = f
+
+        if f is None:
+            raise IndexError
+
+        if type(f) is not Function:
+            func = f.get("#call")
+            new_locals = create_locals(func,
+                                       [arg.eval(scope_path) for arg in self.args],
+                                       self.kwargs.eval(scope_path), object=f)
+        else:
+            new_locals = create_locals(func, [arg.eval(scope_path) for arg in self.args],
+                                       self.kwargs.eval(scope_path), object=obj)
+
+        return Call.do_call(func, new_locals)
+
+
+class ParentCall(Call):
+    def __init__(self,
+                 name: str,
+                 args: Iterable[IComputable],
+                 kwargs=None):
+        self.name = name
+        self.args = args
+        self.kwargs = Constant(NoneType()) if kwargs is None else kwargs
+
+    def eval(self, scope_path: tuple):
+        obj = Variable("this").eval(scope_path)
+        f = obj.get(self.name, use_parent=True)
         func = f
 
         if f is None:

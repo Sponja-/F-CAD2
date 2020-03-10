@@ -1,5 +1,5 @@
 from AST.base import ClassCreate, FunctionCreate, Assignment, Variable, MemberCall
-from AST.base import IAssignable, FunctionCall, OperatorCall, MemberAccess
+from AST.base import IAssignable, FunctionCall, OperatorCall, MemberAccess, ParentCall
 from AST.base import ConstructorCall, UnpackOperation, Constant, Destructuring
 from AST.statements import StatementList, ExprStatement, ReturnStatement
 from AST.exceptions import RaiseStatement
@@ -320,8 +320,7 @@ class Parser:
             value = OperatorCall("#exponent", [value, self.trailer_expr()])
         return value
 
-    def expr_list(self, **kwargs):
-        with_kwargs = kwargs.get("with_kwargs", False)
+    def expr_list(self, *, with_kwargs=False):
         start_symbol = self.token.value
         result = [self.expr()]
         kwarg_lines = []
@@ -384,9 +383,18 @@ class Parser:
             self.eat(TokenType.GROUP, ')')
             return ConstructorCall(type, args, kwargs)
 
-        if token.value == "null":
-            self.eat(TokenType.KEYWORD)
-            return ConstructorCall(Variable("NoneType"), [])
+        if token.type == TokenType.KEYWORD:
+            if token.value == "null":
+                self.eat(TokenType.KEYWORD)
+                return ConstructorCall(Variable("NoneType"), [])
+            if token.value == "parent":
+                self.eat(TokenType.KEYWORD)
+                self.eat(TokenType.DOT)
+                name = self.eat(TokenType.NAME)
+                self.eat(TokenType.GROUP, '(')
+                args, kwargs = self.expr_list(with_kwargs=True)
+                self.eat(TokenType.GROUP, ')')
+                return ParentCall(name, args, kwargs)
 
         if token.type == TokenType.INT:
             self.eat(TokenType.INT)

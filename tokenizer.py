@@ -81,7 +81,8 @@ class Tokenizer:
         "null",
         "break",
         "continue",
-        "static"
+        "static",
+        "parent"
     ]
 
     named_operators = [
