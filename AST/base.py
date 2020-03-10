@@ -129,17 +129,18 @@ class Scope:
 
 
 class CreateScope:
-    def __init__(self, path: tuple, elements: LocalsType) -> None:
+    def __init__(self, path: tuple, elements: LocalsType, *, persistent=True) -> None:
         self.path = path
         self.elements = elements
+        self.persistent = persistent
 
     def __enter__(self):
         self.new_path = Variable.table.new_scope(self.path, self.elements)
         return self.new_path
 
     def __exit__(self, type, value, traceback):
-        # del Variable.table[self.new_path]
-        pass
+        if not self.persistent:
+            del Variable.table[self.new_path]
 
 
 class Variable(IComputable, IAssignable):

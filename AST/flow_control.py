@@ -1,7 +1,7 @@
 from .base import IComputable, Object, create_none, FunctionCall, Class
-from .base import unpack, Variable, IAssignable, OperatorCall
+from .base import unpack, IAssignable, OperatorCall
 from .base import IPrimitiveType, register_class, to_primitive_function
-from .base import register_function, Constant, CreateScope, Assignment
+from .base import register_function, Constant, CreateScope
 from .statements import StatementList, IStatement
 from .exceptions import raise_stop_iter
 from .logic import try_bool, Bool
@@ -140,18 +140,15 @@ class ContainsOperation(IComputable):
 
 class ListComprehensionConstant(IComputable):
     def __init__(self,
+                 head: Type[IComputable],
                  operation: Type[IComputable],
-                 iter_vars: List[str],
-                 iterable: Type[IComputable],
                  conditions: List[Type[IComputable]]):
+        self.head = head
         self.operation = operation
-        self.iter_vars = iter_vars
-        self.iterable = iterable
         self.conditions = conditions
 
     def eval(self, scope_path: tuple) -> Type[Object]:
-        return ListComprehension(self.iterable,
-                                 self.iter_vars,
+        return ListComprehension(self.head,
                                  self.operation,
                                  scope_path,
                                  self.conditions)
@@ -159,14 +156,11 @@ class ListComprehensionConstant(IComputable):
 
 class ListComprehension(IPrimitiveType):
     def __init__(self,
-                 iterable: Type[Object],
-                 names: List[str],
+                 head: Type[IComputable],
                  operation: Type[IComputable],
                  scope: tuple,
                  conditions: List[Type[IComputable]]) -> None:
-        self.iter = None
-        self.iterable = iterable
-        self.names = names
+        self.head = head
         self.operation = operation
         self.scope = scope
         self.conditions = conditions
@@ -174,24 +168,21 @@ class ListComprehension(IPrimitiveType):
 
 
 def list_comp_iter(this: ListComprehension) -> ListComprehension:
-    this.iter = iter(this.iterable.eval(this.scope))
+    if isinstance(this.head, ContainsOperation):
+        this.iter = iter(this.head.iterable.eval(this.scope))
     return this
 
 
 def list_comp_next(this: ListComprehension) -> Type[Object]:
-    try:
-        value = next(this.iter)
-    except StopIteration:
-        return raise_stop_iter()
-    values = [value]
-    if len(this.names) > 1:
-        values = unpack(values)
-    new_locals = {name: val for name, val in zip(this.names, values)}
-    with CreateScope(this.scope, new_locals) as new_scope:
-        for condition in this.conditions:
-            if not try_bool(condition.eval(new_scope)).value:
-                return list_comp_next(this)
-        return this.operation.eval(new_scope)
+    if isinstance(this.head, ContainsOperation):
+        try:
+            value = next(this.iter)
+        except StopIteration:
+            return raise_stop_iter()
+        this.head.value.set_value(this.scope, value)
+        return (this.operation.eval(this.scope)
+                if all(cond.eval(this.scope) for cond in this.conditions)
+                else list_comp_next(this))
 
 
 list_comp_class = Class("ListComprehension", {

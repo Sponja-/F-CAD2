@@ -237,14 +237,12 @@ class Parser:
         operation = self.conditional_expr()
         if self.token.value == "for":
             self.eat(TokenType.KEYWORD)
-            iter_vars = self.name_list()
-            self.eat(TokenType.KEYWORD, "in")
-            iterable = self.expr()
+            head = self.expr()
             if self.token.type == TokenType.COMMA:
                 conditions = self.expr_list()
             else:
                 conditions = []
-            return ListComprehensionConstant(operation, iter_vars, iterable, conditions)
+            return ListComprehensionConstant(head, operation, conditions)
         return operation
 
     def conditional_expr(self):
